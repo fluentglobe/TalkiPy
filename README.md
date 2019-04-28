@@ -1,20 +1,18 @@
-MaixPy
+TalkiPy
 =======================
 
 </br>
 
 <div class="title_pic">
-    <img src="ports/k210-freertos/docs/assets/micropython.png"><img src="ports/k210-freertos/docs/assets/icon_sipeed2.png"  height="60">
+    <img src="ports/k210-freertos/docs/assets/micropython.png">
 </div>
 
 </br>
 </br>
 
-**Let's Sipeed up, Maximize AI's power!**
+**TalkiPy, Hello! My name is Talki**
 
-**MaixPy, makes AIOT easier!**
-
-Maixpy is designed to make AIOT programming easier, based on the [Micropython](http://www.micropython.org) syntax, running on a very powerful embedded AIOT chip [K210](https://kendryte.com).
+TalkiPy is designed to experiment with Talki Activities during development, based on the [Micropython](http://www.micropython.org) syntax, running on a very powerful embedded AIOT chip [K210](https://kendryte.com).
 
 ## Simple code
 
@@ -47,18 +45,20 @@ while True:
 
 ## Release
 
-See [Releases page](https://github.com/sipeed/MaixPy/releases)
+See [Releases page](https://github.com/fluentglobe/TalkiPy/releases)
 
 ## Documentation
 
-Doc refer to [maixpy.sipeed.com](https://maixpy.sipeed.com)
+Doc refer to [fluentglobe.com docs](https://fluentglobe.com/talki/py)
 
 
 ## Build From Source
+
+    > docker build --tag t210 .
+    > docker run -i -v /Volumes/Projects/TalkiPy:/TalkiPy -t k210:latest /bin/bash
 
 See [build doc](ports/k210-freertos/README.md)
 
 ## License
 
 See [LICENSE](LICENSE.md) file
-

@@ -9,7 +9,11 @@ MAIXPY
 ### Install dependence
 
 ```
-sudo apt install build-essential cmake 
+sudo apt install build-essential cmake
+```
+or
+```
+brew install cmake
 ```
 
 
@@ -85,7 +89,7 @@ Then we can get bin file(s) in `output` folder
 
 ## Burn(/Flash)
 
-1. Get Burn tool 
+1. Get Burn tool
 
 ```
 ./flash.sh install
@@ -138,17 +142,17 @@ more parameters use
 
 ### Release
 
-* Must commit all changes and rebuild 
+* Must commit all changes and rebuild
 
 * Tests
- 
+
 * Push to remote
 
 * Create a tag: tag name must start with `v`, e.g. `v1.2.3`, or we can not get version in `MaixPy` by command `sys.implementation.version`
 
 ```
 git tag -a v0.1.1 -m "release 0.1.1 (beta) describe....."
-git push origin --tags 
+git push origin --tags
 ```
 
 * Execute `./build.sh clean`
@@ -163,5 +167,3 @@ git push origin --tags
 ```
 
 * Upload to [Releases page](https://github.com/sipeed/MaixPy/releases) and edit release infomation
-
-

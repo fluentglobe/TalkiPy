@@ -30,9 +30,9 @@ fpioa = FPIOA()
 fpioa.set_function(test_pin,FPIOA.GPIO7)
 test_gpio=GPIO(GPIO.GPIO7,GPIO.IN)
 lcd.init(color=(255,0,0))
-lcd.draw_string(100,120, "Welcome to MaixPy", lcd.WHITE, lcd.RED)
+lcd.draw_string(100,120, "Hello, my name is Talki!", lcd.WHITE, lcd.RED)
 if test_gpio.value() == 0:
-    print('PIN 16 pulled down, enter test mode')
+    print('PIN 7 pulled down, enter test mode')
     import sensor
     import image
     sensor.reset()
@@ -51,20 +51,21 @@ if (not "boot.py" in flash_ls) :
     f.write(boot_py)
     f.close()
 
+# https://www.coolgenerator.com/ascii-text-generator TALKIPY
 banner = '''
- __  __              _____  __   __  _____   __     __
-|  \/  |     /\     |_   _| \ \ / / |  __ \  \ \   / /
-| \  / |    /  \      | |    \ V /  | |__) |  \ \_/ /
-| |\/| |   / /\ \     | |     > <   |  ___/    \   /
-| |  | |  / ____ \   _| |_   / . \  | |         | |
-|_|  |_| /_/    \_\ |_____| /_/ \_\ |_|         |_|
+ _________  ________  ___       ___  __    ___  ________  ___    ___
+|\___   ___\\   __  \|\  \     |\  \|\  \ |\  \|\   __  \|\  \  /  /|
+\|___ \  \_\ \  \|\  \ \  \    \ \  \/  /|\ \  \ \  \|\  \ \  \/  / /
+     \ \  \ \ \   __  \ \  \    \ \   ___  \ \  \ \   ____\ \    / /
+      \ \  \ \ \  \ \  \ \  \____\ \  \\ \  \ \  \ \  \___|\/  /  /
+       \ \__\ \ \__\ \__\ \_______\ \__\\ \__\ \__\ \__\ __/  / /
+        \|__|  \|__|\|__|\|_______|\|__| \|__|\|__|\|__||\___/ /
+                                                        \|___|/
 
-Official Site : https://www.sipeed.com
-Wiki          : https://maixpy.sipeed.com
+Official Site : https://fluentglobe.com/talki
+Store         : https://thepia.com/talki
 '''
 print(banner)
 
 # run boot.py
 import boot
-
-
