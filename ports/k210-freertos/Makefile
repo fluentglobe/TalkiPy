@@ -1,5 +1,5 @@
 
-# Makefile for maixpy
+# Makefile for talkipy
 # ports/k210-freetos/Makefile
 #
 .PHONY: all clean compile
@@ -8,7 +8,7 @@
 sinclude $(COMMON_MK)
 ###############################################################################
 # USER OPTION
-LIB_NAME ?= maixpy
+LIB_NAME ?= talkipy
 OUTPUT_DIR := build
 OUTPUT_ELF := $(BIN_DIR)/$(LIB_NAME).elf
 OUTPUT_BIN := $(BIN_DIR)/$(LIB_NAME).bin
@@ -18,14 +18,14 @@ OUTPUT_BIN := $(BIN_DIR)/$(LIB_NAME).bin
 # USER CONFIG MAKE METHOD
 sinclude ${INCLUDE_MK}
 CFLAGS += $(INCLUDE_ALL)
-CFLAGS += -DFFCONF_H=\"lib/oofatfs/ffconf.h\" 
+CFLAGS += -DFFCONF_H=\"lib/oofatfs/ffconf.h\"
 sinclude $(COMMON_C_MK)
 
 ALL_LIBS := $(wildcard $(BIN_DIR)/*.a)
 $(info ${ALL_LIBS}...................)
 # BIN_LDFLAGS += $(SRC_C_OUTPUT_OBJ) $(SRC_CXX_OUTPUT_OBJ)
 
-all: include_mk compile out print_size	
+all: include_mk compile out print_size
 
 print_size:
 	$(SIZE) $(OUTPUT_ELF)
@@ -54,7 +54,7 @@ include_mk:
 	$(foreach n,${SUBDIRS},make -C ${n} include_mk; cat ${n}/include.mk >> ${INCLUDE_MK} ;)
 	cp ${INCLUDE_MK} ${INC_DIR}/${LIB_NAME}.mk
 	$(call echo_info,"update include mk ok!")
-	
+
 clean:
 	$(call echo_info,"Cleaning "$(SUBDIRS)" ...")
 	$(foreach n,${SUBDIRS},make -C ${n} clean;)
@@ -62,10 +62,3 @@ clean:
 	rm -f $(INCLUDE_MK)
 	find ./ -name "include\.mk" | xargs rm -f
 	rm -f inc/*.mk
-
-
-
-
-
-
-
