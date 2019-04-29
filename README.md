@@ -47,6 +47,14 @@ while True:
 
 See [Releases page](https://github.com/fluentglobe/TalkiPy/releases)
 
+Flashing a released or built firmware
+
+    > sudo python3 tools/kflash.py  -p /dev/cu.usbserial-1420 release-??/talkipy.bin
+
+Viewing TalkiPy over the USB cable
+
+    > sudo minicom
+
 ## Documentation
 
 Doc refer to [fluentglobe.com docs](https://fluentglobe.com/talki/py)
@@ -54,8 +62,14 @@ Doc refer to [fluentglobe.com docs](https://fluentglobe.com/talki/py)
 
 ## Build From Source
 
+First build the firmware
+
     > docker build --tag t210 .
     > docker run -i -v /Volumes/Projects/TalkiPy:/TalkiPy -t k210:latest /bin/bash
+
+Second flash the firmware over the USB cable
+
+> sudo python3 tools/kflash.py -p /dev/cu.usbserial-1420 ports/k210-freertos/output/talkipy.bin
 
 See [build doc](ports/k210-freertos/README.md)
 

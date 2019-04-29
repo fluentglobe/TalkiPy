@@ -80,7 +80,7 @@
 
 // #define MPY_HEAP_SIZE  2* 1024 * 1024
 
-#define MPY_HEAP_SIZE  512* 1024 
+#define MPY_HEAP_SIZE  512* 1024
 
 uint8_t CPU_freq = 0;
 uint8_t PLL0_freq = 0;
@@ -91,10 +91,10 @@ uint8_t* _fb_base;
 uint8_t* _jpeg_buf;
 
 #if MICROPY_ENABLE_GC
-static char heap[MPY_HEAP_SIZE] __attribute__((aligned(8))); 
+static char heap[MPY_HEAP_SIZE] __attribute__((aligned(8)));
 #endif
 
-#if MICROPY_PY_THREAD 
+#if MICROPY_PY_THREAD
 #define MP_TASK_PRIORITY        4
 #define MP_TASK_STACK_SIZE      (32 * 1024)
 #define MP_TASK_STACK_LEN       (MP_TASK_STACK_SIZE / sizeof(StackType_t))
@@ -128,8 +128,8 @@ STATIC bool init_sdcard_fs(void) {
             // couldn't mount
             m_del_obj(fs_user_mount_t, vfs_fat);
             m_del_obj(mp_vfs_mount_t, vfs);
-        } 
-		else 
+        }
+		else
 		{
             // mounted via FatFs, now mount the SD partition in the VFS
             if (first_part) {
@@ -162,7 +162,7 @@ STATIC bool init_sdcard_fs(void) {
             }
         }
     }
-	
+
     if (first_part) {
         printk("PYB: can't mount SD card\n");
         return false;
@@ -183,7 +183,7 @@ MP_NOINLINE STATIC bool init_flash_spiffs()
 	vfs_spiffs->cfg.hal_read_f = spiffs_read_method;
 	vfs_spiffs->cfg.hal_write_f = spiffs_write_method;
 	vfs_spiffs->cfg.hal_erase_f = spiffs_erase_method;
-	
+
 	vfs_spiffs->cfg.phys_size = SPIFFS_CFG_PHYS_SZ(); // use all spi flash
 	vfs_spiffs->cfg.phys_addr = SPIFFS_CFG_PHYS_ADDR(); // start spiffs at start of spi flash
 	vfs_spiffs->cfg.phys_erase_block = SPIFFS_CFG_PHYS_ERASE_SZ(); // according to datasheet
@@ -222,7 +222,7 @@ MP_NOINLINE STATIC bool init_flash_spiffs()
 
 		}
 	}
-	
+
 	mp_vfs_mount_t *vfs = m_new_obj(mp_vfs_mount_t);
     if (vfs == NULL) {
         printk("[MaixPy]:can't mount flash\n");
@@ -259,7 +259,7 @@ void pyexec_str(vstr_t* str) {
 #endif
 
 void mp_task(
-	#if MICROPY_PY_THREAD 
+	#if MICROPY_PY_THREAD
 	void *pvParameter
 	#endif
 	) {
@@ -374,7 +374,7 @@ soft_reset:
 #endif
 		mp_hal_stdout_tx_strn("[MaixPy]: soft reboot\r\n", 23);
 		mp_deinit();
-		msleep(10);	    
+		msleep(10);
 		goto soft_reset;
 		// sysctl->soft_reset.soft_reset = 1;
 }
@@ -384,7 +384,7 @@ soft_reset:
 #define KPU 1
 #define I2S 2
 int main()
-{	
+{
 	uint8_t manuf_id, device_id;
 	sysctl_pll_set_freq(SYSCTL_PLL0, PLL0_MAX_OUTPUT_FREQ);
 	sysctl_pll_set_freq(SYSCTL_PLL1, PLL1_MAX_OUTPUT_FREQ);
@@ -410,11 +410,11 @@ int main()
 	sysctl_cpu_set_freq(store_freq[CPU]);
 	uarths_init();
 	sysctl_clock_set_threshold(SYSCTL_THRESHOLD_AI, (PLL1_MAX_OUTPUT_FREQ / store_freq[KPU]) / 2);
-	printk("[MAIXPY]Pll0:freq:%d\r\n",sysctl_clock_get_freq(SYSCTL_CLOCK_PLL0));
-	printk("[MAIXPY]Pll1:freq:%d\r\n",sysctl_clock_get_freq(SYSCTL_CLOCK_PLL1));
-	printk("[MAIXPY]Pll2:freq:%d\r\n",sysctl_clock_get_freq(SYSCTL_CLOCK_PLL2));
-	printk("[MAIXPY]cpu:freq:%d\r\n",sysctl_clock_get_freq(SYSCTL_CLOCK_CPU));
-	printk("[MAIXPY]kpu:freq:%d\r\n",sysctl_clock_get_freq(SYSCTL_CLOCK_AI));
+	printk("[TALKI] Pll0:freq:%d\r\n",sysctl_clock_get_freq(SYSCTL_CLOCK_PLL0));
+	printk("[TALKI] Pll1:freq:%d\r\n",sysctl_clock_get_freq(SYSCTL_CLOCK_PLL1));
+	printk("[TALKI] Pll2:freq:%d\r\n",sysctl_clock_get_freq(SYSCTL_CLOCK_PLL2));
+	printk("[TALKI] cpu:freq:%d\r\n",sysctl_clock_get_freq(SYSCTL_CLOCK_CPU));
+	printk("[TALKI] kpu:freq:%d\r\n",sysctl_clock_get_freq(SYSCTL_CLOCK_AI));
 	sysctl_clock_enable(SYSCTL_CLOCK_AI);
 	sysctl_set_power_mode(SYSCTL_POWER_BANK6,SYSCTL_POWER_V18);
 	sysctl_set_power_mode(SYSCTL_POWER_BANK7,SYSCTL_POWER_V18);
@@ -426,10 +426,10 @@ int main()
 	w25qxx_init_dma(3, 0);
 	w25qxx_enable_quad_mode_dma();
 	w25qxx_read_id_dma(&manuf_id, &device_id);
-	printk("[MAIXPY]Flash:0x%02x:0x%02x\r\n", manuf_id, device_id);
+	printk("[TALKI] Flash:0x%02x:0x%02x\r\n", manuf_id, device_id);
     /* Init SPI IO map and function settings */
     sysctl_set_spi0_dvp_data(1);
-#if MICROPY_PY_THREAD 
+#if MICROPY_PY_THREAD
 	xTaskCreateAtProcessor(0, // processor
 						 mp_task, // function entry
 						 "mp_task", //task name
@@ -477,5 +477,3 @@ int DEBUG_printf(const char *fmt, ...) {
     return ret;
 }
 #endif
-
-

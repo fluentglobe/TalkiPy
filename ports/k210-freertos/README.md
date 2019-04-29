@@ -19,9 +19,9 @@ brew install cmake
 
 ### Compile MicroPython cross compiler
 
-Build in root path of MaixPy
+Build in root path of TalkiPy
 ```
-cd MaixPy
+cd TalkiPy
 make -C mpy-cross
 ```
 
