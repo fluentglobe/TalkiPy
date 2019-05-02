@@ -21,3 +21,6 @@
 [submodule "ports/k210-freertos/mpy_support/lvgl/lv_bindings"]
 	path = ports/k210-freertos/mpy_support/lvgl/lv_bindings
 	url = https://github.com/littlevgl/lv_binding_micropython.git
+[submodule "ports/esp32/esp-idf"]
+	path = ports/esp32/esp-idf
+	url = git@github.com:espressif/esp-idf
