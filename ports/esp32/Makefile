@@ -21,6 +21,8 @@ FLASH_FREQ ?= 40m
 FLASH_SIZE ?= 4MB
 CROSS_COMPILE ?= xtensa-esp32-elf-
 
+PORT = /dev/cu.Bluetooth-Incoming-Port
+
 ESPIDF_SUPHASH := 30545f4cccec7460634b656d278782dd7151098e
 
 # paths to ESP IDF and its components
