@@ -1,0 +1,13 @@
+-std=c++11
+-I/Volumes/Projects/esp-idf/components/esp32/include
+-I/Volumes/Projects/esp-idf/components/bootloader_support/include
+-I/Volumes/Projects/esp-idf/components/vfs/include
+-I/Volumes/Projects/esp-idf/components/freertos/include
+-I/Volumes/Projects/esp-idf/components/bt/include
+-I/Volumes/Projects/esp-idf/components/bt/bluedroid/api/include/api
+-I/Volumes/Projects/esp-idf/components/soc/include
+-I/Volumes/Projects/esp-idf/components/driver/include
+-I/Volumes/Projects/esp-idf/components/spi_flash/include
+-I/Volumes/Projects/esp-idf/components/protobuf-c/include
+-I/Volumes/Projects/esp-idf/components/mbedtls/include
+-DMY_DEBUG_FLAG
