@@ -64,7 +64,7 @@ if [[ ! -f $kflash_py ]]; then
 fi
 
 cwd=`pwd`
-bin_file_path="$cwd/output/maixpy.bin"
+bin_file_path="$cwd/output/talkipy.bin"
 
 if [[ -f $bin_file_path ]]; then
     if [[ $monitor == true ]]; then
@@ -83,5 +83,3 @@ date_time_now=$(date +%F\ \ %H:%M:%S)
 echo -ne "\033[1;32m" #green
 echo ====== Flash Time: ${time_distance}s  complete at  ${date_time_now} =======
 echo -e "\033[0m"
-
-
