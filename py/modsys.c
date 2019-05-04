@@ -69,7 +69,7 @@ STATIC MP_DEFINE_ATTRTUPLE(
     mp_sys_implementation_obj,
     impl_fields,
     2,
-        MP_ROM_QSTR(MP_QSTR_micropython),
+        MP_ROM_QSTR(MP_QSTR_circuitpython),
         MP_ROM_PTR(&mp_sys_implementation_version_info_obj)
 );
 #else
@@ -77,7 +77,7 @@ STATIC const mp_rom_obj_tuple_t mp_sys_implementation_obj = {
     {&mp_type_tuple},
     2,
     {
-        MP_ROM_QSTR(MP_QSTR_micropython),
+        MP_OBJ_NEW_QSTR(MP_QSTR_circuitpython),
         MP_ROM_PTR(&mp_sys_implementation_version_info_obj),
     }
 };
@@ -135,7 +135,7 @@ STATIC mp_obj_t mp_sys_exc_info(void) {
 
     t->items[0] = MP_OBJ_FROM_PTR(mp_obj_get_type(cur_exc));
     t->items[1] = cur_exc;
-    t->items[2] = mp_const_none;
+    t->items[2] = mp_obj_exception_get_traceback_obj(cur_exc);
     return MP_OBJ_FROM_PTR(t);
 }
 MP_DEFINE_CONST_FUN_OBJ_0(mp_sys_exc_info_obj, mp_sys_exc_info);

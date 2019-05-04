@@ -33,6 +33,8 @@
 #include "py/runtime.h"
 #include "extmod/machine_i2c.h"
 
+#include "supervisor/shared/translate.h"
+
 #if MICROPY_PY_MACHINE_I2C
 
 typedef mp_machine_soft_i2c_obj_t machine_i2c_obj_t;
@@ -285,16 +287,16 @@ STATIC void machine_i2c_obj_init_helper(machine_i2c_obj_t *self, size_t n_args, 
     mp_hal_i2c_init(self, args[ARG_freq].u_int);
 }
 
-STATIC mp_obj_t machine_i2c_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
+STATIC mp_obj_t machine_i2c_make_new(const mp_obj_type_t *type, size_t n_args, const mp_obj_t *args, mp_map_t *kw_args) {
     // check the id argument, if given
     if (n_args > 0) {
         if (args[0] != MP_OBJ_NEW_SMALL_INT(-1)) {
             #if defined(MICROPY_PY_MACHINE_I2C_MAKE_NEW)
             // dispatch to port-specific constructor
-            extern mp_obj_t MICROPY_PY_MACHINE_I2C_MAKE_NEW(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args);
-            return MICROPY_PY_MACHINE_I2C_MAKE_NEW(type, n_args, n_kw, args);
+            extern mp_obj_t MICROPY_PY_MACHINE_I2C_MAKE_NEW(const mp_obj_type_t *type, size_t n_args, const mp_obj_t *all_args, mp_map_t *kw_args);
+            return MICROPY_PY_MACHINE_I2C_MAKE_NEW(type, n_args, args, kw_args);
             #else
-            mp_raise_ValueError("invalid I2C peripheral");
+            mp_raise_ValueError(translate("invalid I2C peripheral"));
             #endif
         }
         --n_args;
@@ -304,14 +306,12 @@ STATIC mp_obj_t machine_i2c_make_new(const mp_obj_type_t *type, size_t n_args, s
     // create new soft I2C object
     machine_i2c_obj_t *self = m_new_obj(machine_i2c_obj_t);
     self->base.type = &machine_i2c_type;
-    mp_map_t kw_args;
-    mp_map_init_fixed_table(&kw_args, n_kw, args + n_args);
-    machine_i2c_obj_init_helper(self, n_args, args, &kw_args);
-    return MP_OBJ_FROM_PTR(self);
+    machine_i2c_obj_init_helper(self, n_args, args, kw_args);
+    return (mp_obj_t)self;
 }
 
 STATIC mp_obj_t machine_i2c_obj_init(size_t n_args, const mp_obj_t *args, mp_map_t *kw_args) {
-    machine_i2c_obj_init_helper(MP_OBJ_TO_PTR(args[0]), n_args - 1, args + 1, kw_args);
+    machine_i2c_obj_init_helper(args[0], n_args - 1, args + 1, kw_args);
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_KW(machine_i2c_init_obj, 1, machine_i2c_obj_init);
@@ -335,7 +335,7 @@ STATIC mp_obj_t machine_i2c_start(mp_obj_t self_in) {
     mp_obj_base_t *self = (mp_obj_base_t*)MP_OBJ_TO_PTR(self_in);
     mp_machine_i2c_p_t *i2c_p = (mp_machine_i2c_p_t*)self->type->protocol;
     if (i2c_p->start == NULL) {
-        mp_raise_msg(&mp_type_OSError, "I2C operation not supported");
+        mp_raise_msg(&mp_type_OSError, translate("I2C operation not supported"));
     }
     int ret = i2c_p->start(self);
     if (ret != 0) {
@@ -349,7 +349,7 @@ STATIC mp_obj_t machine_i2c_stop(mp_obj_t self_in) {
     mp_obj_base_t *self = (mp_obj_base_t*)MP_OBJ_TO_PTR(self_in);
     mp_machine_i2c_p_t *i2c_p = (mp_machine_i2c_p_t*)self->type->protocol;
     if (i2c_p->stop == NULL) {
-        mp_raise_msg(&mp_type_OSError, "I2C operation not supported");
+        mp_raise_msg(&mp_type_OSError, translate("I2C operation not supported"));
     }
     int ret = i2c_p->stop(self);
     if (ret != 0) {
@@ -363,7 +363,7 @@ STATIC mp_obj_t machine_i2c_readinto(size_t n_args, const mp_obj_t *args) {
     mp_obj_base_t *self = (mp_obj_base_t*)MP_OBJ_TO_PTR(args[0]);
     mp_machine_i2c_p_t *i2c_p = (mp_machine_i2c_p_t*)self->type->protocol;
     if (i2c_p->read == NULL) {
-        mp_raise_msg(&mp_type_OSError, "I2C operation not supported");
+        mp_raise_msg(&mp_type_OSError, translate("I2C operation not supported"));
     }
 
     // get the buffer to read into
@@ -387,7 +387,7 @@ STATIC mp_obj_t machine_i2c_write(mp_obj_t self_in, mp_obj_t buf_in) {
     mp_obj_base_t *self = (mp_obj_base_t*)MP_OBJ_TO_PTR(self_in);
     mp_machine_i2c_p_t *i2c_p = (mp_machine_i2c_p_t*)self->type->protocol;
     if (i2c_p->write == NULL) {
-        mp_raise_msg(&mp_type_OSError, "I2C operation not supported");
+        mp_raise_msg(&mp_type_OSError, translate("I2C operation not supported"));
     }
 
     // get the buffer to write from

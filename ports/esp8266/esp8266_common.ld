@@ -86,6 +86,11 @@ SECTIONS
 
         /* we put some specific text in this section */
 
+        *common-hal/*.o*(.literal* .text*)
+        *shared-bindings/*.o*(.literal* .text*)
+        *shared-module/*.o*(.literal* .text*)
+        *supervisor/*.o*(.literal* .text*)
+
         *py/argcheck.o*(.literal* .text*)
         *py/asm*.o*(.literal* .text*)
         *py/bc.o*(.literal* .text*)
@@ -128,21 +133,16 @@ SECTIONS
         *extmod/*.o*(.literal* .text*)
 
         *lib/oofatfs/*.o*(.literal*, .text*)
-        *lib/axtls/*.o(.literal*, .text*)
+        */libaxtls.a:(.literal*, .text*)
         *lib/berkeley-db-1.xx/*.o(.literal*, .text*)
         *lib/libm/*.o*(.literal*, .text*)
         *lib/mp-readline/*.o(.literal*, .text*)
         *lib/netutils/*.o*(.literal*, .text*)
         *lib/timeutils/*.o*(.literal*, .text*)
-        *lib/utils/printf.o*(.literal*, .text*)
-        *lib/utils/sys_stdio_mphal.o*(.literal*, .text*)
-        *lib/utils/pyexec.o*(.literal*, .text*)
-        *lib/utils/stdout_helpers.o*(.literal*, .text*)
-        *lib/utils/interrupt_char.o*(.literal.mp_hal_set_interrupt_char, .text.mp_hal_set_interrupt_char)
+        *lib/utils/*.o*(.literal*, .text*)
         *drivers/bus/*.o(.literal* .text*)
 
-        build/main.o(.literal* .text*)
-        *fatfs_port.o(.literal* .text*)
+        build*/main.o(.literal* .text*)
         *gccollect.o(.literal* .text*)
         *gchelper.o(.literal* .text*)
         *help.o(.literal* .text*)
@@ -178,7 +178,7 @@ SECTIONS
         */frozen.o(.rodata.mp_frozen_content) /* frozen modules */
 
         /* for -mforce-l32 */
-        build/*.o(.rodata*)
+        build*/*.o(.rodata*)
 
         _irom0_text_end = ABSOLUTE(.);
     } >irom0_0_seg :irom0_0_phdr

@@ -28,22 +28,64 @@
 #include <string.h>
 
 #include "py/compile.h"
+#include "py/frozenmod.h"
 #include "py/runtime.h"
 #include "py/stackctrl.h"
 #include "py/mperrno.h"
 #include "py/mphal.h"
 #include "py/gc.h"
-
-// This needs to be defined before any ESP SDK headers are included
-#define USE_US_TIMER 1
-
-#include "extmod/misc.h"
+#include "lib/oofatfs/ff.h"
 #include "lib/mp-readline/readline.h"
 #include "lib/utils/pyexec.h"
 #include "gccollect.h"
 #include "user_interface.h"
+#include "common-hal/microcontroller/Pin.h"
+#include "common-hal/pulseio/PWMOut.h"
 
-STATIC char heap[38 * 1024];
+STATIC char heap[36 * 1024];
+
+bool maybe_run(const char* filename, pyexec_result_t* exec_result) {
+    mp_import_stat_t stat = mp_import_stat(filename);
+    if (stat != MP_IMPORT_STAT_FILE) {
+        return false;
+    }
+    mp_hal_stdout_tx_str(filename);
+    mp_hal_stdout_tx_str(" output:\r\n");
+    pyexec_file(filename, exec_result);
+    return true;
+}
+
+bool serial_active = false;
+
+STATIC bool start_mp(void) {
+    pyexec_frozen_module("_boot.py");
+
+    pyexec_result_t result;
+    bool found_boot = maybe_run("settings.txt", &result) ||
+                      maybe_run("settings.py", &result) ||
+                      maybe_run("boot.py", &result) ||
+                      maybe_run("boot.txt", &result);
+
+    if (!found_boot || !(result.return_code & PYEXEC_FORCED_EXIT)) {
+        maybe_run("code.txt", &result) ||
+            maybe_run("code.py", &result) ||
+            maybe_run("main.py", &result) ||
+            maybe_run("main.txt", &result);
+    }
+
+    if (result.return_code & PYEXEC_FORCED_EXIT) {
+        return false;
+    }
+
+    // We can't detect connections so we wait for any character to mark the serial active.
+    if (!serial_active) {
+        mp_hal_stdin_rx_chr();
+        serial_active = true;
+    }
+    mp_hal_stdout_tx_str("\r\n\r\n");
+    mp_hal_stdout_tx_str("Press any key to enter the REPL. Use CTRL-D to soft reset.\r\n");
+    return mp_hal_stdin_rx_chr() == CHAR_CTRL_D;
+}
 
 STATIC void mp_reset(void) {
     mp_stack_set_top((void*)0x40000000);
@@ -53,9 +95,15 @@ STATIC void mp_reset(void) {
     mp_init();
     mp_obj_list_init(mp_sys_path, 0);
     mp_obj_list_append(mp_sys_path, MP_OBJ_NEW_QSTR(MP_QSTR_)); // current dir (or base dir of the script)
-    mp_obj_list_append(mp_sys_path, MP_OBJ_NEW_QSTR(MP_QSTR__slash_lib));
     mp_obj_list_append(mp_sys_path, MP_OBJ_NEW_QSTR(MP_QSTR__slash_));
+    // Frozen modules are in their own pseudo-dir, e.g., ".frozen".
+    // Prioritize .frozen over /lib.
+    mp_obj_list_append(mp_sys_path, MP_OBJ_NEW_QSTR(MP_FROZEN_FAKE_DIR_QSTR));
+    mp_obj_list_append(mp_sys_path, MP_OBJ_NEW_QSTR(MP_QSTR__slash_lib));
+
     mp_obj_list_init(mp_sys_argv, 0);
+
+    reset_pins();
     #if MICROPY_EMIT_XTENSA || MICROPY_EMIT_INLINE_XTENSA
     extern void esp_native_code_init(void);
     esp_native_code_init();
@@ -63,74 +111,42 @@ STATIC void mp_reset(void) {
     pin_init0();
     readline_init0();
     dupterm_task_init();
-#if MICROPY_MODULE_FROZEN
-    pyexec_frozen_module("_boot.py");
-    pyexec_file("boot.py");
-    if (pyexec_mode_kind == PYEXEC_MODE_FRIENDLY_REPL) {
-        pyexec_file("main.py");
-    }
-#endif
-
-    // Check if there are any dupterm objects registered and if not then
-    // activate UART(0), or else there will never be any chance to get a REPL
-    size_t idx;
-    for (idx = 0; idx < MICROPY_PY_OS_DUPTERM; ++idx) {
-        if (MP_STATE_VM(dupterm_objs[idx]) != MP_OBJ_NULL) {
-            break;
-        }
-    }
-    if (idx == MICROPY_PY_OS_DUPTERM) {
-        mp_obj_t args[2];
-        args[0] = MP_OBJ_NEW_SMALL_INT(0);
-        args[1] = MP_OBJ_NEW_SMALL_INT(115200);
-        args[0] = pyb_uart_type.make_new(&pyb_uart_type, 2, 0, args);
-        args[1] = MP_OBJ_NEW_SMALL_INT(1);
-        extern mp_obj_t os_dupterm(size_t n_args, const mp_obj_t *args);
-        os_dupterm(2, args);
-        mp_hal_stdout_tx_str("Activated UART(0) for REPL\r\n");
-    }
+    pwmout_reset();
 }
 
-void soft_reset(void) {
+bool soft_reset(void) {
     gc_sweep_all();
     mp_hal_stdout_tx_str("PYB: soft reboot\r\n");
     mp_hal_delay_us(10000); // allow UART to flush output
     mp_reset();
-    #if MICROPY_REPL_EVENT_DRIVEN
-    pyexec_event_repl_init();
-    #endif
+    mp_hal_delay_us(1000); // Give the RTOS time to do housekeeping.
+    return start_mp();
 }
 
 void init_done(void) {
-    #if MICROPY_REPL_EVENT_DRIVEN
-    uart_task_init();
-    #endif
     mp_reset();
+    mp_hal_delay_us(1000); // Give the RTOS time to do housekeeping.
+    bool skip_repl = start_mp();
     mp_hal_stdout_tx_str("\r\n");
-    #if MICROPY_REPL_EVENT_DRIVEN
-    pyexec_event_repl_init();
-    #endif
 
-    #if !MICROPY_REPL_EVENT_DRIVEN
-soft_reset:
-    for (;;) {
-        if (pyexec_mode_kind == PYEXEC_MODE_RAW_REPL) {
-            if (pyexec_raw_repl() != 0) {
-                break;
-            }
-        } else {
-            if (pyexec_friendly_repl() != 0) {
-                break;
+    int exit_code = PYEXEC_FORCED_EXIT;
+    while (true) {
+        if (!skip_repl) {
+            if (pyexec_mode_kind == PYEXEC_MODE_RAW_REPL) {
+                exit_code = pyexec_raw_repl();
+            } else {
+                exit_code = pyexec_friendly_repl();
             }
         }
+        if (exit_code == PYEXEC_FORCED_EXIT) {
+            skip_repl = soft_reset();
+        } else if (exit_code != 0) {
+            break;
+        }
     }
-    soft_reset();
-    goto soft_reset;
-    #endif
 }
 
 void user_init(void) {
-    system_timer_reinit();
     system_init_done_cb(init_done);
 }
 
@@ -172,7 +188,7 @@ int mp_vprintf(const mp_print_t *print, const char *fmt, va_list args);
 int DEBUG_printf(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    int ret = mp_vprintf(MICROPY_DEBUG_PRINTER, fmt, ap);
+    int ret = mp_vprintf(&MICROPY_DEBUG_PRINTER_DEST, fmt, ap);
     va_end(ap);
     return ret;
 }

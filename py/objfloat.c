@@ -32,10 +32,15 @@
 #include "py/parsenum.h"
 #include "py/runtime.h"
 
+#include "supervisor/shared/translate.h"
+
 #if MICROPY_PY_BUILTINS_FLOAT
 
 #include <math.h>
 #include "py/formatfloat.h"
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
 
 #if MICROPY_OBJ_REPR != MICROPY_OBJ_REPR_C && MICROPY_OBJ_REPR != MICROPY_OBJ_REPR_D
 
@@ -128,9 +133,9 @@ STATIC void float_print(const mp_print_t *print, mp_obj_t o_in, mp_print_kind_t 
     }
 }
 
-STATIC mp_obj_t float_make_new(const mp_obj_type_t *type_in, size_t n_args, size_t n_kw, const mp_obj_t *args) {
+STATIC mp_obj_t float_make_new(const mp_obj_type_t *type_in, size_t n_args, const mp_obj_t *args, mp_map_t *kw_args) {
     (void)type_in;
-    mp_arg_check_num(n_args, n_kw, 0, 1, false);
+    mp_arg_check_num(n_args, kw_args, 0, 1, false);
 
     switch (n_args) {
         case 0:
@@ -161,7 +166,8 @@ STATIC mp_obj_t float_unary_op(mp_unary_op_t op, mp_obj_t o_in) {
         case MP_UNARY_OP_POSITIVE: return o_in;
         case MP_UNARY_OP_NEGATIVE: return mp_obj_new_float(-val);
         case MP_UNARY_OP_ABS: {
-            if (signbit(val)) {
+            // TODO check for NaN etc
+            if (val < 0) {
                 return mp_obj_new_float(-val);
             } else {
                 return o_in;
@@ -261,7 +267,7 @@ mp_obj_t mp_obj_float_binary_op(mp_binary_op_t op, mp_float_t lhs_val, mp_obj_t 
         case MP_BINARY_OP_INPLACE_FLOOR_DIVIDE:
             if (rhs_val == 0) {
                 zero_division_error:
-                mp_raise_msg(&mp_type_ZeroDivisionError, "divide by zero");
+                mp_raise_msg(&mp_type_ZeroDivisionError, translate("division by zero"));
             }
             // Python specs require that x == (x//y)*y + (x%y) so we must
             // call divmod to compute the correct floor division, which
@@ -299,7 +305,7 @@ mp_obj_t mp_obj_float_binary_op(mp_binary_op_t op, mp_float_t lhs_val, mp_obj_t 
                 #if MICROPY_PY_BUILTINS_COMPLEX
                 return mp_obj_complex_binary_op(MP_BINARY_OP_POWER, lhs_val, 0, rhs_in);
                 #else
-                mp_raise_ValueError("complex values not supported");
+                mp_raise_ValueError(translate("complex values not supported"));
                 #endif
             }
             lhs_val = MICROPY_FLOAT_C_FUN(pow)(lhs_val, rhs_val);
@@ -326,5 +332,7 @@ mp_obj_t mp_obj_float_binary_op(mp_binary_op_t op, mp_float_t lhs_val, mp_obj_t 
     }
     return mp_obj_new_float(lhs_val);
 }
+
+#pragma GCC diagnostic pop
 
 #endif // MICROPY_PY_BUILTINS_FLOAT

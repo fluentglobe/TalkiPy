@@ -39,6 +39,8 @@
 #include "py/objstr.h"
 #include "py/builtin.h"
 
+#include "supervisor/shared/translate.h"
+
 #if MICROPY_ENABLE_COMPILER
 
 #define RULE_ACT_ARG_MASK       (0x0f)
@@ -190,7 +192,7 @@ static const size_t FIRST_RULE_WITH_OFFSET_ABOVE_255 =
 #undef DEF_RULE_NC
 0;
 
-#if USE_RULE_NAME
+#if defined(USE_RULE_NAME) && USE_RULE_NAME
 // Define an array of rule names corresponding to each rule
 STATIC const char *const rule_name_table[] = {
 #define DEF_RULE(rule, comp, kind, ...) #rule,
@@ -249,6 +251,9 @@ STATIC const uint16_t *get_rule_arg(uint8_t r_id) {
     return &rule_arg_combined_table[off];
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-align"
+
 STATIC void *parser_alloc(parser_t *parser, size_t num_bytes) {
     // use a custom memory allocator to store parse nodes sequentially in large chunks
 
@@ -289,6 +294,7 @@ STATIC void *parser_alloc(parser_t *parser, size_t num_bytes) {
     chunk->union_.used += num_bytes;
     return ret;
 }
+#pragma GCC diagnostic pop
 
 STATIC void push_rule(parser_t *parser, size_t src_line, uint8_t rule_id, size_t arg_i) {
     if (parser->rule_stack_top >= parser->rule_stack_alloc) {
@@ -399,7 +405,7 @@ void mp_parse_node_print(mp_parse_node_t pn, size_t indent) {
             #endif
         } else {
             size_t n = MP_PARSE_NODE_STRUCT_NUM_NODES(pns);
-            #if USE_RULE_NAME
+            #if defined(USE_RULE_NAME) && USE_RULE_NAME
             printf("%s(%u) (n=%u)\n", rule_name_table[MP_PARSE_NODE_STRUCT_KIND(pns)], (uint)MP_PARSE_NODE_STRUCT_KIND(pns), (uint)n);
             #else
             printf("rule(%u) (n=%u)\n", (uint)MP_PARSE_NODE_STRUCT_KIND(pns), (uint)n);
@@ -717,7 +723,7 @@ STATIC bool fold_constants(parser_t *parser, uint8_t rule_id, size_t num_args) {
                 mp_obj_t value;
                 if (!mp_parse_node_get_int_maybe(pn_value, &value)) {
                     mp_obj_t exc = mp_obj_new_exception_msg(&mp_type_SyntaxError,
-                        "constant must be an integer");
+                        translate("constant must be an integer"));
                     mp_obj_exception_add_traceback(exc, parser->lexer->source_name,
                         ((mp_parse_node_struct_t*)pn1)->source_line, MP_QSTR_NULL);
                     nlr_raise(exc);
@@ -837,11 +843,30 @@ mp_parse_tree_t mp_parse(mp_lexer_t *lex, mp_parse_input_kind_t input_kind) {
 
     parser.rule_stack_alloc = MICROPY_ALLOC_PARSE_RULE_INIT;
     parser.rule_stack_top = 0;
-    parser.rule_stack = m_new(rule_stack_t, parser.rule_stack_alloc);
+    parser.rule_stack = NULL;
+    while (parser.rule_stack_alloc > 1) {
+        parser.rule_stack = m_new_maybe(rule_stack_t, parser.rule_stack_alloc);
+        if (parser.rule_stack != NULL) {
+            break;
+        } else {
+            parser.rule_stack_alloc /= 2;
+        }
+    }
 
     parser.result_stack_alloc = MICROPY_ALLOC_PARSE_RESULT_INIT;
     parser.result_stack_top = 0;
-    parser.result_stack = m_new(mp_parse_node_t, parser.result_stack_alloc);
+    parser.result_stack = NULL;
+    while (parser.result_stack_alloc > 1) {
+        parser.result_stack = m_new_maybe(mp_parse_node_t, parser.result_stack_alloc);
+        if (parser.result_stack != NULL) {
+            break;
+        } else {
+            parser.result_stack_alloc /= 2;
+        }
+    }
+    if (parser.rule_stack == NULL || parser.result_stack == NULL) {
+        mp_raise_msg(&mp_type_MemoryError, translate("Unable to init parser"));
+    }
 
     parser.lexer = lex;
 
@@ -1142,13 +1167,13 @@ mp_parse_tree_t mp_parse(mp_lexer_t *lex, mp_parse_input_kind_t input_kind) {
         mp_obj_t exc;
         if (lex->tok_kind == MP_TOKEN_INDENT) {
             exc = mp_obj_new_exception_msg(&mp_type_IndentationError,
-                "unexpected indent");
+                translate("unexpected indent"));
         } else if (lex->tok_kind == MP_TOKEN_DEDENT_MISMATCH) {
             exc = mp_obj_new_exception_msg(&mp_type_IndentationError,
-                "unindent doesn't match any outer indent level");
+                translate("unindent does not match any outer indentation level"));
         } else {
             exc = mp_obj_new_exception_msg(&mp_type_SyntaxError,
-                "invalid syntax");
+                translate("invalid syntax"));
         }
         // add traceback to give info about file name and location
         // we don't have a 'block' name, so just pass the NULL qstr to indicate this

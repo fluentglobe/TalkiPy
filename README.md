@@ -62,7 +62,13 @@ Doc refer to [fluentglobe.com docs](https://fluentglobe.com/talki/py)
 
 ## Build From Source
 
-First build the firmware
+First build mpy-cross
+
+    > make -C mpy-cross
+
+Make sure that you install 'huffman' module first. E.G. `pip3 install huffman`
+
+Then build the firmware
 
     > docker build --tag t210 .
     > docker run -i -v /Volumes/Projects/TalkiPy:/TalkiPy -t k210:latest /bin/bash

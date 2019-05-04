@@ -178,6 +178,35 @@ STATIC mp_obj_t ure_exec(bool is_anchored, uint n_args, const mp_obj_t *args) {
     size_t len;
     subj.begin = mp_obj_str_get_data(args[1], &len);
     subj.end = subj.begin + len;
+#if MICROPY_PY_URE_MATCH_SPAN_START_END
+    if (n_args > 2) {
+        const mp_obj_type_t *self_type = mp_obj_get_type(args[1]);
+        mp_int_t str_len = MP_OBJ_SMALL_INT_VALUE(mp_obj_len_maybe(args[1]));
+        const byte *begin = (const byte *)subj.begin;
+
+        int pos = mp_obj_get_int(args[2]);
+        if (pos >= str_len) {
+            return mp_const_none;
+        }
+        if (pos < 0) {
+            pos = 0;
+        }
+        const byte *pos_ptr = str_index_to_ptr(self_type, begin, len, MP_OBJ_NEW_SMALL_INT(pos), true);
+
+        const byte *endpos_ptr = (const byte *)subj.end;
+        if (n_args > 3) {
+            int endpos = mp_obj_get_int(args[3]);
+            if (endpos <= pos) {
+                return mp_const_none;
+            }
+            // Will cap to length
+            endpos_ptr = str_index_to_ptr(self_type, begin, len, args[3], true);
+        }
+
+        subj.begin = (const char *)pos_ptr;
+        subj.end = (const char *)endpos_ptr;
+    }
+#endif
     int caps_num = (self->re.sub + 1) * 2;
     mp_obj_match_t *match = m_new_obj_var(mp_obj_match_t, char*, caps_num);
     // cast is a workaround for a bug in msvc: it treats const char** as a const pointer instead of a pointer to pointer to const char
@@ -233,7 +262,7 @@ STATIC mp_obj_t re_split(size_t n_args, const mp_obj_t *args) {
         mp_obj_t s = mp_obj_new_str_of_type(str_type, (const byte*)subj.begin, caps[0] - subj.begin);
         mp_obj_list_append(retval, s);
         if (self->re.sub > 0) {
-            mp_raise_NotImplementedError("Splitting with sub-captures");
+            mp_raise_NotImplementedError(translate("Splitting with sub-captures"));
         }
         subj.begin = caps[1];
         if (maxsplit > 0 && --maxsplit == 0) {
@@ -376,7 +405,11 @@ STATIC MP_DEFINE_CONST_DICT(re_locals_dict, re_locals_dict_table);
 
 STATIC const mp_obj_type_t re_type = {
     { &mp_type_type },
+#if CIRCUITPY
+    .name = MP_QSTR_re,
+#else
     .name = MP_QSTR_ure,
+#endif
     .print = re_print,
     .locals_dict = (void*)&re_locals_dict,
 };
@@ -396,7 +429,7 @@ STATIC mp_obj_t mod_re_compile(size_t n_args, const mp_obj_t *args) {
     int error = re1_5_compilecode(&o->re, re_str);
     if (error != 0) {
 error:
-        mp_raise_ValueError("Error in regex");
+        mp_raise_ValueError(translate("Error in regex"));
     }
     if (flags & FLAG_DEBUG) {
         re1_5_dumpcode(&o->re);
@@ -433,7 +466,11 @@ MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_re_sub_obj, 3, 5, mod_re_sub);
 #endif
 
 STATIC const mp_rom_map_elem_t mp_module_re_globals_table[] = {
+#if CIRCUITPY
+    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_re) },
+#else
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_ure) },
+#endif
     { MP_ROM_QSTR(MP_QSTR_compile), MP_ROM_PTR(&mod_re_compile_obj) },
     { MP_ROM_QSTR(MP_QSTR_match), MP_ROM_PTR(&mod_re_match_obj) },
     { MP_ROM_QSTR(MP_QSTR_search), MP_ROM_PTR(&mod_re_search_obj) },

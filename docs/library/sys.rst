@@ -1,10 +1,12 @@
 :mod:`sys` -- system specific functions
 =======================================
 
+.. include:: ../templates/unsupported_in_circuitpython.inc
+
 .. module:: sys
    :synopsis: system specific functions
 
-|see_cpython_module| :mod:`python:sys`.
+|see_cpython_module| :mod:`cpython:sys`.
 
 Functions
 ---------
@@ -27,8 +29,7 @@ Functions
       ``traceback`` module in CPython. Unlike ``traceback.print_exception()``,
       this function takes just exception value instead of exception type,
       exception value, and traceback object; *file* argument should be
-      positional; further arguments are not supported. CPython-compatible
-      ``traceback`` module can be found in `micropython-lib`.
+      positional; further arguments are not supported.
 
 Constants
 ---------
@@ -44,12 +45,12 @@ Constants
 .. data:: implementation
 
    Object with information about the current Python implementation. For
-   MicroPython, it has following attributes:
+   CircuitPython, it has following attributes:
 
-   * *name* - string "micropython"
+   * *name* - string "circuitpython"
    * *version* - tuple (major, minor, micro), e.g. (1, 7, 0)
 
-   This object is the recommended way to distinguish MicroPython from other
+   This object is the recommended way to distinguish CircuitPython from other
    Python implementations (note that it still may not exist in the very
    minimal ports).
 
@@ -57,13 +58,13 @@ Constants
       :class: attention
 
       CPython mandates more attributes for this object, but the actual useful
-      bare minimum is implemented in MicroPython.
+      bare minimum is implemented in CircuitPython.
 
 .. data:: maxsize
 
    Maximum value which a native integer type can hold on the current platform,
-   or maximum value representable by MicroPython integer type, if it's smaller
-   than platform max value (that is the case for MicroPython ports without
+   or maximum value representable by CircuitPython integer type, if it's smaller
+   than platform max value (that is the case for CircuitPython ports without
    long int support).
 
    This attribute is useful for detecting "bitness" of a platform (32-bit vs
@@ -95,24 +96,24 @@ Constants
 
 .. data:: platform
 
-   The platform that MicroPython is running on. For OS/RTOS ports, this is
+   The platform that CircuitPython is running on. For OS/RTOS ports, this is
    usually an identifier of the OS, e.g. ``"linux"``. For baremetal ports it
-   is an identifier of a board, e.g. ``"pyboard"`` for the original MicroPython
-   reference board. It thus can be used to distinguish one board from another.
-   If you need to check whether your program runs on MicroPython (vs other
+   is an identifier of the chip on a board, e.g. ``"MicroChip SAMD51"``.
+   It thus can be used to distinguish one board from another.
+   If you need to check whether your program runs on CircuitPython (vs other
    Python implementation), use `sys.implementation` instead.
 
 .. data:: stderr
 
-   Standard error `stream`.
+   Standard error ``stream``.
 
 .. data:: stdin
 
-   Standard input `stream`.
+   Standard input ``stream``.
 
 .. data:: stdout
 
-   Standard output `stream`.
+   Standard output ``stream``.
 
 .. data:: version
 

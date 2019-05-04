@@ -27,7 +27,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "genhdr/mpversion.h"
 #include "py/builtin.h"
+#include "py/mpconfig.h"
 #include "py/objmodule.h"
 
 #if MICROPY_PY_BUILTINS_HELP
@@ -75,6 +77,16 @@ STATIC void mp_help_add_from_names(mp_obj_t list, const char *name) {
 }
 #endif
 
+// These externs were originally declared inside mp_help_print_modules(),
+// but they triggered -Wnested-externs, so they were moved outside.
+#if MICROPY_MODULE_FROZEN_STR
+extern const char mp_frozen_str_names[];
+#endif
+
+#if MICROPY_MODULE_FROZEN_MPY
+extern const char mp_frozen_mpy_names[];
+#endif
+
 STATIC void mp_help_print_modules(void) {
     mp_obj_t list = mp_obj_new_list(0, NULL);
 
@@ -85,12 +97,10 @@ STATIC void mp_help_print_modules(void) {
     #endif
 
     #if MICROPY_MODULE_FROZEN_STR
-    extern const char mp_frozen_str_names[];
     mp_help_add_from_names(list, mp_frozen_str_names);
     #endif
 
     #if MICROPY_MODULE_FROZEN_MPY
-    extern const char mp_frozen_mpy_names[];
     mp_help_add_from_names(list, mp_frozen_mpy_names);
     #endif
 
@@ -124,7 +134,10 @@ STATIC void mp_help_print_modules(void) {
     }
 
     // let the user know there may be other modules available from the filesystem
-    mp_print_str(MP_PYTHON_PRINTER, "Plus any modules on the filesystem\n");
+    const compressed_string_t* compressed = translate("Plus any modules on the filesystem\n");
+    char decompressed[compressed->length];
+    decompress(compressed, decompressed);
+    mp_print_str(MP_PYTHON_PRINTER, decompressed);
 }
 #endif
 
@@ -145,13 +158,13 @@ STATIC void mp_help_print_obj(const mp_obj_t obj) {
 
     mp_map_t *map = NULL;
     if (type == &mp_type_module) {
-        map = &mp_obj_module_get_globals(obj)->map;
+        map = mp_obj_dict_get_map(mp_obj_module_get_globals(obj));
     } else {
         if (type == &mp_type_type) {
             type = MP_OBJ_TO_PTR(obj);
         }
-        if (type->locals_dict != NULL) {
-            map = &type->locals_dict->map;
+        if (type->locals_dict != MP_OBJ_NULL && MP_OBJ_IS_TYPE(type->locals_dict, &mp_type_dict)) {
+            map = mp_obj_dict_get_map(type->locals_dict);
         }
     }
     if (map != NULL) {
@@ -165,8 +178,12 @@ STATIC void mp_help_print_obj(const mp_obj_t obj) {
 
 STATIC mp_obj_t mp_builtin_help(size_t n_args, const mp_obj_t *args) {
     if (n_args == 0) {
-        // print a general help message
-        mp_print_str(MP_PYTHON_PRINTER, MICROPY_PY_BUILTINS_HELP_TEXT);
+        // print a general help message. Translate only works on single strings on one line.
+        const compressed_string_t* compressed =
+            translate("Welcome to Adafruit CircuitPython %s!\n\nPlease visit learn.adafruit.com/category/circuitpython for project guides.\n\nTo list built-in modules please do `help(\"modules\")`.\n");
+        char decompressed[compressed->length];
+        decompress(compressed, decompressed);
+        mp_printf(MP_PYTHON_PRINTER, decompressed, MICROPY_GIT_TAG);
     } else {
         // try to print something sensible about the given object
         mp_help_print_obj(args[0]);

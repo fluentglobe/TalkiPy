@@ -31,9 +31,12 @@
 #include "py/stream.h"
 #include "py/mperrno.h"
 
+#include "supervisor/shared/translate.h"
+
 #if MICROPY_PY_UZLIB
 
-#include "uzlib/tinf.h"
+#define UZLIB_CONF_PARANOID_CHECKS (1)
+#include "../../lib/uzlib/src/tinf.h"
 
 #if 0 // print debugging info
 #define DEBUG_printf DEBUG_printf
@@ -48,7 +51,7 @@ typedef struct _mp_obj_decompio_t {
     bool eof;
 } mp_obj_decompio_t;
 
-STATIC unsigned char read_src_stream(TINF_DATA *data) {
+STATIC int read_src_stream(TINF_DATA *data) {
     byte *p = (void*)data;
     p -= offsetof(mp_obj_decompio_t, decomp);
     mp_obj_decompio_t *self = (mp_obj_decompio_t*)p;
@@ -66,8 +69,8 @@ STATIC unsigned char read_src_stream(TINF_DATA *data) {
     return c;
 }
 
-STATIC mp_obj_t decompio_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
-    mp_arg_check_num(n_args, n_kw, 1, 2, false);
+STATIC mp_obj_t decompio_make_new(const mp_obj_type_t *type, size_t n_args, const mp_obj_t *args, mp_map_t *kw_args) {
+    mp_arg_check_num(n_args, kw_args, 1, 2, false);
     mp_get_stream_raise(args[0], MP_STREAM_OP_READ);
     mp_obj_decompio_t *o = m_new_obj(mp_obj_decompio_t);
     o->base.type = type;
@@ -92,7 +95,7 @@ STATIC mp_obj_t decompio_make_new(const mp_obj_type_t *type, size_t n_args, size
         dict_opt = uzlib_zlib_parse_header(&o->decomp);
         if (dict_opt < 0) {
 header_error:
-            mp_raise_ValueError("compression header");
+            mp_raise_ValueError(translate("compression header"));
         }
         dict_sz = 1 << dict_opt;
     } else {
@@ -110,7 +113,7 @@ STATIC mp_uint_t decompio_read(mp_obj_t o_in, void *buf, mp_uint_t size, int *er
     }
 
     o->decomp.dest = buf;
-    o->decomp.destSize = size;
+    o->decomp.dest_limit = (unsigned char*)buf+size;
     int st = uzlib_uncompress_chksum(&o->decomp);
     if (st == TINF_DONE) {
         o->eof = true;
@@ -155,10 +158,10 @@ STATIC mp_obj_t mod_uzlib_decompress(size_t n_args, const mp_obj_t *args) {
     byte *dest_buf = m_new(byte, dest_buf_size);
 
     decomp->dest = dest_buf;
-    decomp->destSize = dest_buf_size;
+    decomp->dest_limit = dest_buf+dest_buf_size;
     DEBUG_printf("uzlib: Initial out buffer: " UINT_FMT " bytes\n", decomp->destSize);
     decomp->source = bufinfo.buf;
-
+    decomp->source_limit = (unsigned char *)bufinfo.buf + bufinfo.len;
     int st;
     bool is_zlib = true;
 
@@ -185,7 +188,7 @@ STATIC mp_obj_t mod_uzlib_decompress(size_t n_args, const mp_obj_t *args) {
         dest_buf = m_renew(byte, dest_buf, dest_buf_size, dest_buf_size + 256);
         dest_buf_size += 256;
         decomp->dest = dest_buf + offset;
-        decomp->destSize = 256;
+        decomp->dest_limit = dest_buf + offset + 256;
     }
 
     mp_uint_t final_sz = decomp->dest - dest_buf;
@@ -216,10 +219,11 @@ const mp_obj_module_t mp_module_uzlib = {
 // Source files #include'd here to make sure they're compiled in
 // only if module is enabled by config setting.
 
-#include "uzlib/tinflate.c"
-#include "uzlib/tinfzlib.c"
-#include "uzlib/tinfgzip.c"
-#include "uzlib/adler32.c"
-#include "uzlib/crc32.c"
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#include "../../lib/uzlib/src/tinflate.c"
+#include "../../lib/uzlib/src/tinfzlib.c"
+#include "../../lib/uzlib/src/tinfgzip.c"
+#include "../../lib/uzlib/src/adler32.c"
+#include "../../lib/uzlib/src/crc32.c"
 
 #endif // MICROPY_PY_UZLIB

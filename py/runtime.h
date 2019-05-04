@@ -77,11 +77,9 @@ bool mp_sched_schedule(mp_obj_t function, mp_obj_t arg);
 // extra printing method specifically for mp_obj_t's which are integral type
 int mp_print_mp_int(const mp_print_t *print, mp_obj_t x, int base, int base_char, int flags, char fill, int width, int prec);
 
-void mp_arg_check_num_sig(size_t n_args, size_t n_kw, uint32_t sig);
-static inline void mp_arg_check_num(size_t n_args, size_t n_kw, size_t n_args_min, size_t n_args_max, bool takes_kw) {
-    mp_arg_check_num_sig(n_args, n_kw, (uint32_t)MP_OBJ_FUN_MAKE_SIG(n_args_min, n_args_max, takes_kw));
-}
+void mp_arg_check_num(size_t n_args, mp_map_t *kw_args, size_t n_args_min, size_t n_args_max, bool takes_kw);
 void mp_arg_parse_all(size_t n_pos, const mp_obj_t *pos, mp_map_t *kws, size_t n_allowed, const mp_arg_t *allowed, mp_arg_val_t *out_vals);
+void mp_arg_check_num_kw_array(size_t n_args, size_t n_kw, size_t n_args_min, size_t n_args_max, bool takes_kw);
 void mp_arg_parse_all_kw_array(size_t n_pos, size_t n_kw, const mp_obj_t *args, size_t n_allowed, const mp_arg_t *allowed, mp_arg_val_t *out_vals);
 NORETURN void mp_arg_error_terse_mismatch(void);
 NORETURN void mp_arg_error_unimpl_kw(void);
@@ -150,12 +148,21 @@ mp_obj_t mp_import_name(qstr name, mp_obj_t fromlist, mp_obj_t level);
 mp_obj_t mp_import_from(mp_obj_t module, qstr name);
 void mp_import_all(mp_obj_t module);
 
-NORETURN void mp_raise_msg(const mp_obj_type_t *exc_type, const char *msg);
-//NORETURN void nlr_raise_msg_varg(const mp_obj_type_t *exc_type, const char *fmt, ...);
-NORETURN void mp_raise_ValueError(const char *msg);
-NORETURN void mp_raise_TypeError(const char *msg);
-NORETURN void mp_raise_NotImplementedError(const char *msg);
+NORETURN void mp_raise_msg(const mp_obj_type_t *exc_type, const compressed_string_t *msg);
+NORETURN void mp_raise_msg_varg(const mp_obj_type_t *exc_type, const compressed_string_t *fmt, ...);
+NORETURN void mp_raise_ValueError(const compressed_string_t *msg);
+NORETURN void mp_raise_ValueError_varg(const compressed_string_t *fmt, ...);
+NORETURN void mp_raise_TypeError(const compressed_string_t *msg);
+NORETURN void mp_raise_TypeError_varg(const compressed_string_t *fmt, ...);
+NORETURN void mp_raise_AttributeError(const compressed_string_t *msg);
+NORETURN void mp_raise_RuntimeError(const compressed_string_t *msg);
+NORETURN void mp_raise_ImportError(const compressed_string_t *msg);
+NORETURN void mp_raise_IndexError(const compressed_string_t *msg);
 NORETURN void mp_raise_OSError(int errno_);
+NORETURN void mp_raise_OSError_msg(const compressed_string_t *msg);
+NORETURN void mp_raise_OSError_msg_varg(const compressed_string_t *fmt, ...);
+NORETURN void mp_raise_NotImplementedError(const compressed_string_t *msg);
+NORETURN void mp_raise_NotImplementedError_varg(const compressed_string_t *fmt, ...);
 NORETURN void mp_raise_recursion_depth(void);
 
 #if MICROPY_BUILTIN_METHOD_CHECK_SELF_ARG
@@ -171,7 +178,6 @@ NORETURN void mp_raise_recursion_depth(void);
 // helper functions for native/viper code
 mp_uint_t mp_convert_obj_to_native(mp_obj_t obj, mp_uint_t type);
 mp_obj_t mp_convert_native_to_obj(mp_uint_t val, mp_uint_t type);
-mp_obj_dict_t *mp_native_swap_globals(mp_obj_dict_t *new_globals);
 mp_obj_t mp_native_call_function_n_kw(mp_obj_t fun_in, size_t n_args_kw, const mp_obj_t *args);
 void mp_native_raise(mp_obj_t o);
 

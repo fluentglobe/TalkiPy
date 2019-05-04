@@ -7,6 +7,8 @@ HEADER_BUILD = $(BUILD)/genhdr
 # file containing qstr defs for the core Python bit
 PY_QSTR_DEFS = $(PY_SRC)/qstrdefs.h
 
+TRANSLATION := en_US
+
 # If qstr autogeneration is not disabled we specify the output header
 # for all collected qstrings.
 ifneq ($(QSTR_AUTOGEN_DISABLE),1)
@@ -25,24 +27,8 @@ CFLAGS_MOD += -DFFCONF_H=\"lib/oofatfs/ffconf.h\"
 ifeq ($(MICROPY_PY_USSL),1)
 CFLAGS_MOD += -DMICROPY_PY_USSL=1
 ifeq ($(MICROPY_SSL_AXTLS),1)
-CFLAGS_MOD += -DMICROPY_SSL_AXTLS=1 -I$(TOP)/lib/axtls/ssl -I$(TOP)/lib/axtls/crypto -I$(TOP)/extmod/axtls-include
-AXTLS_DIR = lib/axtls
-$(BUILD)/$(AXTLS_DIR)/%.o: CFLAGS += -Wno-unused-parameter -Wno-unused-variable -Wno-unused-const-variable -Wno-unused-but-set-variable -Wno-array-bounds -Wno-uninitialized -Wno-sign-compare -Wno-old-style-definition $(AXTLS_DEFS_EXTRA)
-SRC_MOD += $(addprefix $(AXTLS_DIR)/,\
-	ssl/asn1.c \
-	ssl/loader.c \
-	ssl/tls1.c \
-	ssl/tls1_svr.c \
-	ssl/tls1_clnt.c \
-	ssl/x509.c \
-	crypto/aes.c \
-	crypto/bigint.c \
-	crypto/crypto_misc.c \
-	crypto/hmac.c \
-	crypto/md5.c \
-	crypto/rsa.c \
-	crypto/sha1.c \
-	)
+CFLAGS_MOD += -DMICROPY_SSL_AXTLS=1 -I$(TOP)/lib/axtls/ssl -I$(TOP)/lib/axtls/crypto -I$(TOP)/lib/axtls/config
+LDFLAGS_MOD += -L$(BUILD) -laxtls
 else ifeq ($(MICROPY_SSL_MBEDTLS),1)
 # Can be overridden by ports which have "builtin" mbedTLS
 MICROPY_SSL_MBEDTLS_INCLUDE ?= $(TOP)/lib/mbedtls/include
@@ -93,7 +79,7 @@ endif
 
 ifeq ($(MICROPY_PY_BTREE),1)
 BTREE_DIR = lib/berkeley-db-1.xx
-BTREE_DEFS = -D__DBINTERFACE_PRIVATE=1 -Dmpool_error=printf -Dabort=abort_ "-Dvirt_fd_t=void*" $(BTREE_DEFS_EXTRA)
+BTREE_DEFS = -D__DBINTERFACE_PRIVATE=1 -Dmpool_error=printf -Dabort=abort_ -Dvirt_fd_t=mp_obj_t "-DVIRT_FD_T_HEADER=<py/obj.h>" $(BTREE_DEFS_EXTRA)
 INC += -I$(TOP)/$(BTREE_DIR)/PORT/include
 SRC_MOD += extmod/modbtree.c
 SRC_MOD += $(addprefix $(BTREE_DIR)/,\
@@ -119,6 +105,24 @@ $(BUILD)/$(BTREE_DIR)/%.o: CFLAGS += -Wno-old-style-definition -Wno-sign-compare
 $(BUILD)/extmod/modbtree.o: CFLAGS += $(BTREE_DEFS)
 endif
 
+# External modules written in C.
+ifneq ($(USER_C_MODULES),)
+# pre-define USERMOD variables as expanded so that variables are immediate 
+# expanded as they're added to them
+SRC_USERMOD := 
+CFLAGS_USERMOD :=
+LDFLAGS_USERMOD :=
+$(foreach module, $(wildcard $(USER_C_MODULES)/*/micropython.mk), \
+    $(eval USERMOD_DIR = $(patsubst %/,%,$(dir $(module))))\
+    $(info Including User C Module from $(USERMOD_DIR))\
+	$(eval include $(module))\
+)
+
+SRC_MOD += $(patsubst $(USER_C_MODULES)/%.c,%.c,$(SRC_USERMOD))
+CFLAGS_MOD += $(CFLAGS_USERMOD)
+LDFLAGS_MOD += $(LDFLAGS_USERMOD)
+endif
+
 # py object files
 PY_CORE_O_BASENAME = $(addprefix py/,\
 	mpstate.o \
@@ -130,6 +134,7 @@ PY_CORE_O_BASENAME = $(addprefix py/,\
 	nlrsetjmp.o \
 	malloc.o \
 	gc.o \
+	gc_long_lived.o \
 	pystack.o \
 	qstr.o \
 	vstr.o \
@@ -209,6 +214,7 @@ PY_CORE_O_BASENAME = $(addprefix py/,\
 	objtype.o \
 	objzip.o \
 	opmethods.o \
+	reload.o \
 	sequence.o \
 	stream.o \
 	binary.o \
@@ -243,15 +249,8 @@ PY_EXTMOD_O_BASENAME = \
 	extmod/moduheapq.o \
 	extmod/modutimeq.o \
 	extmod/moduhashlib.o \
-	extmod/moducryptolib.o \
 	extmod/modubinascii.o \
 	extmod/virtpin.o \
-	extmod/machine_mem.o \
-	extmod/machine_pinbase.o \
-	extmod/machine_signal.o \
-	extmod/machine_pulse.o \
-	extmod/machine_i2c.o \
-	extmod/machine_spi.o \
 	extmod/modussl_axtls.o \
 	extmod/modussl_mbedtls.o \
 	extmod/modurandom.o \
@@ -280,37 +279,64 @@ PY_O = $(PY_CORE_O) $(PY_EXTMOD_O)
 
 # object file for frozen files
 ifneq ($(FROZEN_DIR),)
-PY_O += $(BUILD)/$(BUILD)/frozen.o
+PY_O += $(BUILD)/frozen.o
 endif
 
+# Combine old singular FROZEN_MPY_DIR with new multiple value form.
+FROZEN_MPY_DIRS += $(FROZEN_MPY_DIR)
+
 # object file for frozen bytecode (frozen .mpy files)
-ifneq ($(FROZEN_MPY_DIR),)
-PY_O += $(BUILD)/$(BUILD)/frozen_mpy.o
+ifneq ($(FROZEN_MPY_DIRS),)
+PY_O += $(BUILD)/frozen_mpy.o
 endif
 
 # Sources that may contain qstrings
 SRC_QSTR_IGNORE = py/nlr%
+SRC_QSTR_EMITNATIVE = py/emitn%
 SRC_QSTR = $(SRC_MOD) $(filter-out $(SRC_QSTR_IGNORE),$(PY_CORE_O_BASENAME:.o=.c)) $(PY_EXTMOD_O_BASENAME:.o=.c)
+# Sources that only hold QSTRs after pre-processing.
+SRC_QSTR_PREPROCESSOR = $(addprefix $(TOP)/, $(filter $(SRC_QSTR_EMITNATIVE),$(PY_CORE_O_BASENAME:.o=.c)))
 
 # Anything that depends on FORCE will be considered out-of-date
 FORCE:
 .PHONY: FORCE
 
 $(HEADER_BUILD)/mpversion.h: FORCE | $(HEADER_BUILD)
+	$(STEPECHO) "GEN $@"
 	$(Q)$(PYTHON) $(PY_SRC)/makeversionhdr.py $@
+
+# build a list of registered modules for py/objmodule.c.
+$(HEADER_BUILD)/moduledefs.h: $(SRC_QSTR) $(QSTR_GLOBAL_DEPENDENCIES) | $(HEADER_BUILD)/mpversion.h
+	@$(ECHO) "GEN $@"
+	$(Q)$(PYTHON) $(PY_SRC)/makemoduledefs.py --vpath="., $(TOP), $(USER_C_MODULES)" $(SRC_QSTR) > $@
+
+SRC_QSTR += $(HEADER_BUILD)/moduledefs.h
 
 # mpconfigport.mk is optional, but changes to it may drastically change
 # overall config, so they need to be caught
 MPCONFIGPORT_MK = $(wildcard mpconfigport.mk)
 
+$(HEADER_BUILD)/$(TRANSLATION).mo: $(TOP)/locale/$(TRANSLATION).po
+	$(Q)msgfmt -o $@ $^
+
+$(HEADER_BUILD)/qstrdefs.preprocessed.h: $(PY_QSTR_DEFS) $(QSTR_DEFS) $(QSTR_DEFS_COLLECTED) mpconfigport.h $(MPCONFIGPORT_MK) $(PY_SRC)/mpconfig.h | $(HEADER_BUILD)
+	$(STEPECHO) "GEN $@"
+	$(Q)cat $(PY_QSTR_DEFS) $(QSTR_DEFS) $(QSTR_DEFS_COLLECTED) | $(SED) 's/^Q(.*)/"&"/' | $(CPP) $(CFLAGS) - | $(SED) 's/^"\(Q(.*)\)"/\1/' > $@
+
 # qstr data
+$(HEADER_BUILD)/qstrdefs.enum.h: $(PY_SRC)/makeqstrdata.py $(HEADER_BUILD)/qstrdefs.preprocessed.h
+	$(STEPECHO) "GEN $@"
+	$(Q)$(PYTHON3) $(PY_SRC)/makeqstrdata.py $(HEADER_BUILD)/qstrdefs.preprocessed.h > $@
+
 # Adding an order only dependency on $(HEADER_BUILD) causes $(HEADER_BUILD) to get
 # created before we run the script to generate the .h
 # Note: we need to protect the qstr names from the preprocessor, so we wrap
 # the lines in "" and then unwrap after the preprocessor is finished.
-$(HEADER_BUILD)/qstrdefs.generated.h: $(PY_QSTR_DEFS) $(QSTR_DEFS) $(QSTR_DEFS_COLLECTED) $(PY_SRC)/makeqstrdata.py mpconfigport.h $(MPCONFIGPORT_MK) $(PY_SRC)/mpconfig.h | $(HEADER_BUILD)
-	$(Q)cat $(PY_QSTR_DEFS) $(QSTR_DEFS) $(QSTR_DEFS_COLLECTED) | $(SED) 's/^Q(.*)/"&"/' | $(CPP) $(CFLAGS) - | $(SED) 's/^"\(Q(.*)\)"/\1/' > $(HEADER_BUILD)/qstrdefs.preprocessed.h
-	$(Q)$(PYTHON) $(PY_SRC)/makeqstrdata.py $(HEADER_BUILD)/qstrdefs.preprocessed.h > $@
+$(HEADER_BUILD)/qstrdefs.generated.h: $(PY_SRC)/makeqstrdata.py $(HEADER_BUILD)/$(TRANSLATION).mo $(HEADER_BUILD)/qstrdefs.preprocessed.h
+	$(STEPECHO) "GEN $@"
+	$(Q)$(PYTHON3) $(PY_SRC)/makeqstrdata.py --compression_filename $(HEADER_BUILD)/compression.generated.h --translation $(HEADER_BUILD)/$(TRANSLATION).mo $(HEADER_BUILD)/qstrdefs.preprocessed.h > $@
+
+$(PY_BUILD)/qstr.o: $(HEADER_BUILD)/qstrdefs.generated.h
 
 # Force nlr code to always be compiled with space-saving optimisation so
 # that the function preludes are of a minimal and predictable form.

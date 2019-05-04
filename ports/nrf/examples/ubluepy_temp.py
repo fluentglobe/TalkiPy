@@ -22,8 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE
 
-from board import LED
-from machine import RTCounter, Temp
+from pyb import LED
+from machine import RTC, Temp
 from ubluepy import Service, Characteristic, UUID, Peripheral, constants
 
 def event_handler(id, handle, data):
@@ -41,7 +41,7 @@ def event_handler(id, handle, data):
         rtc.stop()
         # indicate 'disconnected'
         LED(1).off()
-        # restart advertisment
+        # restart advertisement
         periph.advertise(device_name="micr_temp", services=[serv_env_sense])
 
     elif id == constants.EVT_GATTS_WRITE:
@@ -70,7 +70,7 @@ LED(1).off()
 
 # use RTC1 as RTC0 is used by bluetooth stack 
 # set up RTC callback every 5 second
-rtc = RTCounter(1, period=50, mode=RTCounter.PERIODIC, callback=send_temp)
+rtc = RTC(1, period=5, mode=RTC.PERIODIC, callback=send_temp)
 
 notif_enabled = False
 

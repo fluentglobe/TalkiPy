@@ -31,6 +31,8 @@
 #include "py/builtin.h"
 #include "py/objtype.h"
 
+#include "supervisor/shared/translate.h"
+
 #define MP_OBJ_IS_DICT_TYPE(o) (MP_OBJ_IS_OBJ(o) && ((mp_obj_base_t*)MP_OBJ_TO_PTR(o))->type->make_new == dict_make_new)
 
 STATIC mp_obj_t dict_update(size_t n_args, const mp_obj_t *args, mp_map_t *kwargs);
@@ -79,7 +81,7 @@ STATIC void dict_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_
     }
 }
 
-STATIC mp_obj_t dict_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
+STATIC mp_obj_t dict_make_new(const mp_obj_type_t *type, size_t n_args, const mp_obj_t *args, mp_map_t *kw_args) {
     mp_obj_t dict_out = mp_obj_new_dict(0);
     mp_obj_dict_t *dict = MP_OBJ_TO_PTR(dict_out);
     dict->base.type = type;
@@ -88,11 +90,12 @@ STATIC mp_obj_t dict_make_new(const mp_obj_type_t *type, size_t n_args, size_t n
         dict->map.is_ordered = 1;
     }
     #endif
-    if (n_args > 0 || n_kw > 0) {
-        mp_obj_t args2[2] = {dict_out, args[0]}; // args[0] is always valid, even if it's not a positional arg
-        mp_map_t kwargs;
-        mp_map_init_fixed_table(&kwargs, n_kw, args + n_args);
-        dict_update(n_args + 1, args2, &kwargs); // dict_update will check that n_args + 1 == 1 or 2
+    if (n_args > 0 || kw_args != NULL) {
+        mp_obj_t args2[2] = {dict_out, NULL}; // args[0] is always valid, even if it's not a positional arg
+        if (n_args > 0) {
+            args2[1] = args[0];
+        }
+        dict_update(n_args + 1, args2, kw_args); // dict_update will check that n_args + 1 == 1 or 2
     }
     return dict_out;
 }
@@ -160,7 +163,7 @@ STATIC mp_obj_t dict_binary_op(mp_binary_op_t op, mp_obj_t lhs_in, mp_obj_t rhs_
     }
 }
 
-// Note: Make sure this is inlined in load part of dict_subscr() below.
+// TODO: Make sure this is inlined in dict_subscr() below.
 mp_obj_t mp_obj_dict_get(mp_obj_t self_in, mp_obj_t index) {
     mp_obj_dict_t *self = MP_OBJ_TO_PTR(self_in);
     mp_map_elem_t *elem = mp_map_lookup(&self->map, index, MP_MAP_LOOKUP);
@@ -309,7 +312,7 @@ STATIC mp_obj_t dict_popitem(mp_obj_t self_in) {
     size_t cur = 0;
     mp_map_elem_t *next = dict_iter_next(self, &cur);
     if (next == NULL) {
-        mp_raise_msg(&mp_type_KeyError, "popitem(): dictionary is empty");
+        mp_raise_msg(&mp_type_KeyError, translate("popitem(): dictionary is empty"));
     }
     self->map.used--;
     mp_obj_t items[] = {next->key, next->value};
@@ -326,7 +329,7 @@ STATIC mp_obj_t dict_update(size_t n_args, const mp_obj_t *args, mp_map_t *kwarg
     mp_obj_dict_t *self = MP_OBJ_TO_PTR(args[0]);
     mp_ensure_not_fixed(self);
 
-    mp_arg_check_num(n_args, kwargs->used, 1, 2, true);
+    mp_arg_check_num(n_args, kwargs, 1, 2, true);
 
     if (n_args == 2) {
         // given a positional argument
@@ -352,7 +355,7 @@ STATIC mp_obj_t dict_update(size_t n_args, const mp_obj_t *args, mp_map_t *kwarg
                 if (key == MP_OBJ_STOP_ITERATION
                     || value == MP_OBJ_STOP_ITERATION
                     || stop != MP_OBJ_STOP_ITERATION) {
-                    mp_raise_ValueError("dict update sequence has wrong length");
+                    mp_raise_ValueError(translate("dict update sequence has wrong length"));
                 } else {
                     mp_map_lookup(&self->map, key, MP_MAP_LOOKUP_ADD_IF_NOT_FOUND)->value = value;
                 }
@@ -599,4 +602,10 @@ mp_obj_t mp_obj_dict_delete(mp_obj_t self_in, mp_obj_t key) {
     mp_obj_t args[2] = {self_in, key};
     dict_get_helper(2, args, MP_MAP_LOOKUP_REMOVE_IF_FOUND);
     return self_in;
+}
+
+mp_map_t *mp_obj_dict_get_map(mp_obj_t self_in) {
+    mp_check_self(MP_OBJ_IS_DICT_TYPE(self_in));
+    mp_obj_dict_t *self = MP_OBJ_TO_PTR(self_in);
+    return &self->map;
 }

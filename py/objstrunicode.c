@@ -32,6 +32,8 @@
 #include "py/objlist.h"
 #include "py/runtime.h"
 
+#include "supervisor/shared/translate.h"
+
 #if MICROPY_PY_BUILTINS_STR_UNICODE
 
 STATIC mp_obj_t mp_obj_new_str_iterator(mp_obj_t str, mp_obj_iter_buf_t *iter_buf);
@@ -110,6 +112,26 @@ STATIC mp_obj_t uni_unary_op(mp_unary_op_t op, mp_obj_t self_in) {
     }
 }
 
+size_t str_offset_to_index(const mp_obj_type_t *type, const byte *self_data, size_t self_len,
+                           size_t offset) {
+    if (offset > self_len) {
+        mp_raise_ValueError(translate("offset out of bounds"));
+    }
+
+    if (type == &mp_type_bytes) {
+        return offset;
+    }
+
+    size_t index_val = 0;
+    const byte *s = self_data;
+    for (size_t i = 0; i < offset; i++, s++) {
+        if (!UTF8_IS_CONT(*s)) {
+            ++index_val;
+        }
+    }
+    return index_val;
+}
+
 // Convert an index into a pointer to its lead byte. Out of bounds indexing will raise IndexError or
 // be capped to the first/last character of the string, depending on is_slice.
 const byte *str_index_to_ptr(const mp_obj_type_t *type, const byte *self_data, size_t self_len,
@@ -129,7 +151,7 @@ const byte *str_index_to_ptr(const mp_obj_type_t *type, const byte *self_data, s
     if (MP_OBJ_IS_SMALL_INT(index)) {
         i = MP_OBJ_SMALL_INT_VALUE(index);
     } else if (!mp_obj_get_int_maybe(index, &i)) {
-        nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_TypeError, "string indices must be integers, not %s", mp_obj_get_type_str(index)));
+        mp_raise_TypeError_varg(translate("string indices must be integers, not %s"), mp_obj_get_type_str(index));
     }
     const byte *s, *top = self_data + self_len;
     if (i < 0)
@@ -140,7 +162,7 @@ const byte *str_index_to_ptr(const mp_obj_type_t *type, const byte *self_data, s
                 if (is_slice) {
                     return self_data;
                 }
-                mp_raise_msg(&mp_type_IndexError, "string index out of range");
+                mp_raise_IndexError(translate("string index out of range"));
             }
             if (!UTF8_IS_CONT(*s)) {
                 ++i;
@@ -159,7 +181,7 @@ const byte *str_index_to_ptr(const mp_obj_type_t *type, const byte *self_data, s
                 if (is_slice) {
                     return top;
                 }
-                mp_raise_msg(&mp_type_IndexError, "string index out of range");
+                mp_raise_IndexError(translate("string index out of range"));
             }
             // Then check completion
             if (i-- == 0) {
@@ -186,7 +208,7 @@ STATIC mp_obj_t str_subscr(mp_obj_t self_in, mp_obj_t index, mp_obj_t value) {
             mp_obj_t ostart, ostop, ostep;
             mp_obj_slice_get(index, &ostart, &ostop, &ostep);
             if (ostep != mp_const_none && ostep != MP_OBJ_NEW_SMALL_INT(1)) {
-                mp_raise_NotImplementedError("only slices with step=1 (aka None) are supported");
+                mp_raise_NotImplementedError(translate("only slices with step=1 (aka None) are supported"));
             }
 
             const byte *pstart, *pstop;
@@ -243,9 +265,7 @@ STATIC const mp_rom_map_elem_t struni_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_rstrip), MP_ROM_PTR(&str_rstrip_obj) },
     { MP_ROM_QSTR(MP_QSTR_format), MP_ROM_PTR(&str_format_obj) },
     { MP_ROM_QSTR(MP_QSTR_replace), MP_ROM_PTR(&str_replace_obj) },
-    #if MICROPY_PY_BUILTINS_STR_COUNT
     { MP_ROM_QSTR(MP_QSTR_count), MP_ROM_PTR(&str_count_obj) },
-    #endif
     #if MICROPY_PY_BUILTINS_STR_PARTITION
     { MP_ROM_QSTR(MP_QSTR_partition), MP_ROM_PTR(&str_partition_obj) },
     { MP_ROM_QSTR(MP_QSTR_rpartition), MP_ROM_PTR(&str_rpartition_obj) },

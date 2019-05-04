@@ -35,14 +35,16 @@
 #include "py/runtime.h"
 #include "py/binary.h"
 
+#include "supervisor/shared/translate.h"
+
 #if MICROPY_PY_BUILTINS_FLOAT
 #include <math.h>
 #endif
 
 // This dispatcher function is expected to be independent of the implementation of long int
-STATIC mp_obj_t mp_obj_int_make_new(const mp_obj_type_t *type_in, size_t n_args, size_t n_kw, const mp_obj_t *args) {
+STATIC mp_obj_t mp_obj_int_make_new(const mp_obj_type_t *type_in, size_t n_args, const mp_obj_t *args, mp_map_t *kw_args) {
     (void)type_in;
-    mp_arg_check_num(n_args, n_kw, 0, 2, false);
+    mp_arg_check_num(n_args, kw_args, 0, 2, false);
 
     switch (n_args) {
         case 0:
@@ -69,6 +71,7 @@ STATIC mp_obj_t mp_obj_int_make_new(const mp_obj_type_t *type_in, size_t n_args,
         case 2:
         default: {
             // should be a string, parse it
+            // TODO proper error checking of argument types
             size_t l;
             const char *s = mp_obj_str_get_data(args[0], &l);
             return mp_parse_num_integer(s, l, mp_obj_get_int(args[1]), NULL);
@@ -138,9 +141,9 @@ STATIC mp_fp_as_int_class_t mp_classify_fp_as_int(mp_float_t val) {
 mp_obj_t mp_obj_new_int_from_float(mp_float_t val) {
     int cl = fpclassify(val);
     if (cl == FP_INFINITE) {
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_OverflowError, "can't convert inf to int"));
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_OverflowError, translate("can't convert inf to int")));
     } else if (cl == FP_NAN) {
-        mp_raise_ValueError("can't convert NaN to int");
+        mp_raise_ValueError(translate("can't convert NaN to int"));
     } else {
         mp_fp_as_int_class_t icl = mp_classify_fp_as_int(val);
         if (icl == MP_FP_CLASS_FIT_SMALLINT) {
@@ -157,7 +160,7 @@ mp_obj_t mp_obj_new_int_from_float(mp_float_t val) {
             return mp_obj_new_int_from_ll((long long)val);
         #endif
         } else {
-            mp_raise_ValueError("float too big");
+            mp_raise_ValueError(translate("float too big"));
         }
         #endif
     }
@@ -322,19 +325,19 @@ mp_obj_t mp_obj_int_binary_op(mp_binary_op_t op, mp_obj_t lhs_in, mp_obj_t rhs_i
 
 // This is called only with strings whose value doesn't fit in SMALL_INT
 mp_obj_t mp_obj_new_int_from_str_len(const char **str, size_t len, bool neg, unsigned int base) {
-    mp_raise_msg(&mp_type_OverflowError, "long int not supported in this build");
+    mp_raise_msg(&mp_type_OverflowError, translate("long int not supported in this build"));
     return mp_const_none;
 }
 
 // This is called when an integer larger than a SMALL_INT is needed (although val might still fit in a SMALL_INT)
 mp_obj_t mp_obj_new_int_from_ll(long long val) {
-    mp_raise_msg(&mp_type_OverflowError, "small int overflow");
+    mp_raise_msg(&mp_type_OverflowError, translate("small int overflow"));
     return mp_const_none;
 }
 
 // This is called when an integer larger than a SMALL_INT is needed (although val might still fit in a SMALL_INT)
 mp_obj_t mp_obj_new_int_from_ull(unsigned long long val) {
-    mp_raise_msg(&mp_type_OverflowError, "small int overflow");
+    mp_raise_msg(&mp_type_OverflowError, translate("small int overflow"));
     return mp_const_none;
 }
 
@@ -344,7 +347,7 @@ mp_obj_t mp_obj_new_int_from_uint(mp_uint_t value) {
     if ((value & ~MP_SMALL_INT_POSITIVE_MASK) == 0) {
         return MP_OBJ_NEW_SMALL_INT(value);
     }
-    mp_raise_msg(&mp_type_OverflowError, "small int overflow");
+    mp_raise_msg(&mp_type_OverflowError, translate("small int overflow"));
     return mp_const_none;
 }
 
@@ -352,7 +355,7 @@ mp_obj_t mp_obj_new_int(mp_int_t value) {
     if (MP_SMALL_INT_FITS(value)) {
         return MP_OBJ_NEW_SMALL_INT(value);
     }
-    mp_raise_msg(&mp_type_OverflowError, "small int overflow");
+    mp_raise_msg(&mp_type_OverflowError, translate("small int overflow"));
     return mp_const_none;
 }
 

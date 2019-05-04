@@ -78,8 +78,17 @@ DRESULT disk_read (
         mp_obj_array_t ar = {{&mp_type_bytearray}, BYTEARRAY_TYPECODE, 0, count * SECSIZE(&vfs->fatfs), buff};
         vfs->readblocks[2] = MP_OBJ_NEW_SMALL_INT(sector);
         vfs->readblocks[3] = MP_OBJ_FROM_PTR(&ar);
-        mp_call_method_n_kw(2, 0, vfs->readblocks);
-        // TODO handle error return
+        nlr_buf_t nlr;
+        if (nlr_push(&nlr) == 0) {
+            mp_obj_t ret = mp_call_method_n_kw(2, 0, vfs->readblocks);
+            nlr_pop();
+            if (ret != mp_const_none && MP_OBJ_SMALL_INT_VALUE(ret) != 0) {
+                return RES_ERROR;
+            }
+        } else {
+            // Exception thrown by readblocks or something it calls.
+            return RES_ERROR;
+        }
     }
 
     return RES_OK;
@@ -115,8 +124,17 @@ DRESULT disk_write (
         mp_obj_array_t ar = {{&mp_type_bytearray}, BYTEARRAY_TYPECODE, 0, count * SECSIZE(&vfs->fatfs), (void*)buff};
         vfs->writeblocks[2] = MP_OBJ_NEW_SMALL_INT(sector);
         vfs->writeblocks[3] = MP_OBJ_FROM_PTR(&ar);
-        mp_call_method_n_kw(2, 0, vfs->writeblocks);
-        // TODO handle error return
+        nlr_buf_t nlr;
+        if (nlr_push(&nlr) == 0) {
+            mp_obj_t ret = mp_call_method_n_kw(2, 0, vfs->writeblocks);
+            nlr_pop();
+            if (ret != mp_const_none && MP_OBJ_SMALL_INT_VALUE(ret) != 0) {
+                return RES_ERROR;
+            }
+        } else {
+            // Exception thrown by writeblocks or something it calls.
+            return RES_ERROR;
+        }
     }
 
     return RES_OK;

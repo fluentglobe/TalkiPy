@@ -36,6 +36,8 @@
 #include "py/binary.h"
 #include "py/mperrno.h"
 
+#include "supervisor/shared/translate.h"
+
 /*
  * modffi uses character codes to encode a value type, based on "struct"
  * module type codes, with some extensions and overridings.
@@ -108,8 +110,6 @@ STATIC ffi_type *char2ffi_type(char c)
         case 'I': return &ffi_type_uint;
         case 'l': return &ffi_type_slong;
         case 'L': return &ffi_type_ulong;
-        case 'q': return &ffi_type_sint64;
-        case 'Q': return &ffi_type_uint64;
         #if MICROPY_PY_BUILTINS_FLOAT
         case 'f': return &ffi_type_float;
         case 'd': return &ffi_type_double;
@@ -135,7 +135,7 @@ STATIC ffi_type *get_ffi_type(mp_obj_t o_in)
     }
     // TODO: Support actual libffi type objects
 
-    mp_raise_TypeError("Unknown type");
+    mp_raise_TypeError(translate("Unknown type"));
 }
 
 STATIC mp_obj_t return_ffi_value(ffi_arg val, char type)
@@ -153,7 +153,7 @@ STATIC mp_obj_t return_ffi_value(ffi_arg val, char type)
         #if MICROPY_PY_BUILTINS_FLOAT
         case 'f': {
             union { ffi_arg ffi; float flt; } val_union = { .ffi = val };
-            return mp_obj_new_float(val_union.flt);
+            return mp_obj_new_float((mp_float_t) val_union.flt);
         }
         case 'd': {
             double *p = (double*)&val;
@@ -204,7 +204,7 @@ STATIC mp_obj_t make_func(mp_obj_t rettype_in, void *func, mp_obj_t argtypes_in)
 
     int res = ffi_prep_cif(&o->cif, FFI_DEFAULT_ABI, nparams, char2ffi_type(*rettype), o->params);
     if (res != FFI_OK) {
-        mp_raise_ValueError("Error in ffi_prep_cif");
+        mp_raise_ValueError(translate("Error in ffi_prep_cif"));
     }
 
     return MP_OBJ_FROM_PTR(o);
@@ -262,12 +262,12 @@ STATIC mp_obj_t mod_ffi_callback(mp_obj_t rettype_in, mp_obj_t func_in, mp_obj_t
 
     int res = ffi_prep_cif(&o->cif, FFI_DEFAULT_ABI, nparams, char2ffi_type(*rettype), o->params);
     if (res != FFI_OK) {
-        mp_raise_ValueError("Error in ffi_prep_cif");
+        mp_raise_ValueError(translate("Error in ffi_prep_cif"));
     }
 
     res = ffi_prep_closure_loc(o->clo, &o->cif, call_py_func, MP_OBJ_TO_PTR(func_in), o->func);
     if (res != FFI_OK) {
-        mp_raise_ValueError("ffi_prep_closure_loc");
+        mp_raise_ValueError(translate("ffi_prep_closure_loc"));
     }
 
     return MP_OBJ_FROM_PTR(o);
@@ -304,9 +304,9 @@ STATIC mp_obj_t ffimod_addr(mp_obj_t self_in, mp_obj_t symname_in) {
 }
 MP_DEFINE_CONST_FUN_OBJ_2(ffimod_addr_obj, ffimod_addr);
 
-STATIC mp_obj_t ffimod_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
+STATIC mp_obj_t ffimod_make_new(const mp_obj_type_t *type, size_t n_args, const mp_obj_t *args, mp_map_t *kw_args) {
     (void)n_args;
-    (void)n_kw;
+    (void)kw_args;
 
     const char *fname = NULL;
     if (args[0] != mp_const_none) {
@@ -410,7 +410,7 @@ STATIC mp_obj_t ffifunc_call(mp_obj_t self_in, size_t n_args, size_t n_kw, const
     }
 
 error:
-    mp_raise_TypeError("Don't know how to pass object to native function");
+    mp_raise_TypeError(translate("Don't know how to pass object to native function"));
 }
 
 STATIC const mp_obj_type_t ffifunc_type = {
@@ -481,7 +481,7 @@ STATIC const mp_obj_type_t opaque_type = {
 */
 
 STATIC mp_obj_t mod_ffi_open(size_t n_args, const mp_obj_t *args) {
-    return ffimod_make_new(&ffimod_type, n_args, 0, args);
+    return ffimod_make_new(&ffimod_type, n_args, args, NULL);
 }
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_ffi_open_obj, 1, 2, mod_ffi_open);
 

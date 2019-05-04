@@ -35,6 +35,7 @@
 #include "py/stream.h"
 #include "py/builtin.h"
 #include "py/mphal.h"
+#include "supervisor/shared/translate.h"
 #include "fdfile.h"
 
 #if MICROPY_PY_IO && !MICROPY_VFS
@@ -46,7 +47,7 @@
 #ifdef MICROPY_CPYTHON_COMPAT
 STATIC void check_fd_is_open(const mp_obj_fdfile_t *o) {
     if (o->fd < 0) {
-        mp_raise_ValueError("I/O operation on closed file");
+        mp_raise_ValueError(translate("I/O operation on closed file"));
     }
 }
 #else
@@ -124,8 +125,6 @@ STATIC mp_uint_t fdfile_ioctl(mp_obj_t o_in, mp_uint_t request, uintptr_t arg, i
             o->fd = -1;
             #endif
             return 0;
-        case MP_STREAM_GET_FILENO:
-            return o->fd;
         default:
             *errcode = EINVAL;
             return MP_STREAM_ERROR;
@@ -206,9 +205,9 @@ STATIC mp_obj_t fdfile_open(const mp_obj_type_t *type, mp_arg_val_t *args) {
     return MP_OBJ_FROM_PTR(o);
 }
 
-STATIC mp_obj_t fdfile_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
+STATIC mp_obj_t fdfile_make_new(const mp_obj_type_t *type, size_t n_args, const mp_obj_t *args, mp_map_t *kw_args) {
     mp_arg_val_t arg_vals[FILE_OPEN_NUM_ARGS];
-    mp_arg_parse_all_kw_array(n_args, n_kw, args, FILE_OPEN_NUM_ARGS, file_open_args, arg_vals);
+    mp_arg_parse_all(n_args, args, kw_args, FILE_OPEN_NUM_ARGS, file_open_args, arg_vals);
     return fdfile_open(type, arg_vals);
 }
 

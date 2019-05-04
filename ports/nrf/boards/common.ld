@@ -1,20 +1,32 @@
+/* Flash region for File System */
+__fatfs_flash_start_addr = ORIGIN(FLASH_FATFS);
+__fatfs_flash_length     = LENGTH(FLASH_FATFS);
+
 /* define output sections */
 SECTIONS
 {
+    /* The startup code goes first into FLASH */
+    .isr_vector :
+    {
+        . = ALIGN(4);
+        KEEP(*(.isr_vector)) /* Startup code */
+
+        . = ALIGN(4);
+    } >FLASH_ISR
+   
     /* The program code and other data goes into FLASH */
     .text :
     {
         . = ALIGN(4);
-        KEEP(*(.isr_vector)) /* Startup code */
-        *(.text)             /* .text sections (code) */
-        *(.text*)            /* .text* sections (code) */
-        *(.rodata)           /* .rodata sections (constants, strings, etc.) */
-        *(.rodata*)          /* .rodata* sections (constants, strings, etc.) */
-    /*  *(.glue_7)   */      /* glue arm to thumb code */
-    /*  *(.glue_7t)  */      /* glue thumb to arm code */
+        *(.text)           /* .text sections (code) */
+        *(.text*)          /* .text* sections (code) */
+        *(.rodata)         /* .rodata sections (constants, strings, etc.) */
+        *(.rodata*)        /* .rodata* sections (constants, strings, etc.) */
+    /*  *(.glue_7)   */    /* glue arm to thumb code */
+    /*  *(.glue_7t)  */    /* glue thumb to arm code */
 
         . = ALIGN(4);
-        _etext = .;          /* define a global symbol at end of code */
+        _etext = .;        /* define a global symbol at end of code */
     } >FLASH_TEXT
      
     /*
@@ -32,13 +44,13 @@ SECTIONS
     */
         
     /* used by the startup to initialize data */
-    _sidata = LOADADDR(.data);
+    _sidata = .;
         
     /* This is the initialized data section
     The program executes knowing that the data is in the RAM
     but the loader puts the initial values in the FLASH (inidata).
     It is one task of the startup to copy the initial values from FLASH to RAM. */
-    .data :
+    .data : AT (_sidata)
     {
         . = ALIGN(4);
         _sdata = .;        /* create a global symbol at data start; used by startup code in order to initialise the .data section in RAM */
@@ -48,7 +60,7 @@ SECTIONS
 
         . = ALIGN(4);
         _edata = .;        /* define a global symbol at data end; used by startup code in order to initialise the .data section in RAM */
-    } >RAM AT>FLASH_TEXT
+    } >RAM 
             
     /* Uninitialized data section */
     .bss :
@@ -61,6 +73,24 @@ SECTIONS
 
         . = ALIGN(4);
         _ebss = .;         /* define a global symbol at bss end; used by startup code and GC */
+    } >RAM
+
+    /* this is to define the start of the heap, and make sure we have a minimum size */
+    .heap :
+    {
+        . = ALIGN(4);
+	      PROVIDE ( end = . );
+	      PROVIDE ( _end = . );
+        _heap_start = .;    /* define a global symbol at heap start */
+        . = . + _minimum_heap_size;
+    } >RAM
+
+    /* this just checks there is enough RAM for the stack */
+    .stack :
+    {
+        . = ALIGN(4);
+        . = . + _minimum_stack_size;
+        . = ALIGN(4);
     } >RAM
 
     /* Remove information from the standard libraries */
@@ -76,6 +106,3 @@ SECTIONS
     .ARM.attributes 0 : { *(.ARM.attributes) }
 }
 
-/* Define heap and stack areas */
-_ram_end = ORIGIN(RAM) + LENGTH(RAM);
-_estack = ORIGIN(RAM) + LENGTH(RAM);

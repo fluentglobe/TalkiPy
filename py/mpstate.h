@@ -76,20 +76,23 @@ typedef struct _mp_state_mem_t {
     byte *gc_pool_start;
     byte *gc_pool_end;
 
+    void *gc_lowest_long_lived_ptr;
+
     int gc_stack_overflow;
     size_t gc_stack[MICROPY_ALLOC_GC_STACK_SIZE];
     uint16_t gc_lock_depth;
 
-    // This variable controls auto garbage collection.  If set to 0 then the
+    // This variable controls auto garbage collection.  If set to false then the
     // GC won't automatically run when gc_alloc can't find enough blocks.  But
     // you can still allocate/free memory and also explicitly call gc_collect.
-    uint16_t gc_auto_collect_enabled;
+    bool gc_auto_collect_enabled;
 
     #if MICROPY_GC_ALLOC_THRESHOLD
     size_t gc_alloc_amount;
     size_t gc_alloc_threshold;
     #endif
 
+    size_t gc_first_free_atb_index;
     size_t gc_last_free_atb_index;
 
     #if MICROPY_PY_GC_COLLECT_RETVAL
@@ -100,6 +103,8 @@ typedef struct _mp_state_mem_t {
     // This is a global mutex used to make the GC thread-safe.
     mp_thread_mutex_t gc_mutex;
     #endif
+
+    void** permanent_pointers;
 } mp_state_mem_t;
 
 // This structure hold runtime and VM information.  It includes a section
@@ -132,6 +137,9 @@ typedef struct _mp_state_vm_t {
     // exception object of type KeyboardInterrupt
     mp_obj_exception_t mp_kbd_exception;
     #endif
+
+    // exception object of type ReloadException
+    mp_obj_exception_t mp_reload_exception;
 
     // dictionary with loaded modules (may be exposed as sys.modules)
     mp_obj_dict_t mp_loaded_modules_dict;
@@ -171,6 +179,7 @@ typedef struct _mp_state_vm_t {
 
     #if MICROPY_PY_OS_DUPTERM
     mp_obj_t dupterm_objs[MICROPY_PY_OS_DUPTERM];
+    mp_obj_t dupterm_arr_obj;
     #endif
 
     #if MICROPY_PY_LWIP_SLIP
@@ -222,6 +231,10 @@ typedef struct _mp_state_vm_t {
 typedef struct _mp_state_thread_t {
     // Stack top at the start of program
     char *stack_top;
+
+    #if MICROPY_MAX_STACK_USAGE
+    char* stack_bottom;
+    #endif
 
     #if MICROPY_STACK_CHECK
     size_t stack_limit;

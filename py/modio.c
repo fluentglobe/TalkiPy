@@ -46,11 +46,11 @@ STATIC const mp_obj_type_t mp_type_iobase;
 
 STATIC mp_obj_base_t iobase_singleton = {&mp_type_iobase};
 
-STATIC mp_obj_t iobase_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
+STATIC mp_obj_t iobase_make_new(const mp_obj_type_t *type, size_t n_args, const mp_obj_t *args, mp_map_t *kw_args) {
     (void)type;
     (void)n_args;
-    (void)n_kw;
     (void)args;
+    (void)kw_args;
     return MP_OBJ_FROM_PTR(&iobase_singleton);
 }
 
@@ -113,8 +113,8 @@ typedef struct _mp_obj_bufwriter_t {
     byte buf[0];
 } mp_obj_bufwriter_t;
 
-STATIC mp_obj_t bufwriter_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
-    mp_arg_check_num(n_args, n_kw, 2, 2, false);
+STATIC mp_obj_t bufwriter_make_new(const mp_obj_type_t *type, size_t n_args, const mp_obj_t *args, mp_map_t *kw_args) {
+    mp_arg_check_num(n_args, kw_args, 2, 2, false);
     size_t alloc = mp_obj_get_int(args[1]);
     mp_obj_bufwriter_t *o = m_new_obj_var(mp_obj_bufwriter_t, byte, alloc);
     o->base.type = type;
@@ -230,14 +230,14 @@ STATIC mp_obj_t resource_stream(mp_obj_t package_in, mp_obj_t path_in) {
     const char *path = mp_obj_str_get_data(path_in, &len);
     vstr_add_strn(&path_buf, path, len);
 
-    len = path_buf.len;
-    const char *data = mp_find_frozen_str(path_buf.buf, &len);
+    size_t file_len;
+    const char *data = mp_find_frozen_str(path_buf.buf, path_buf.len, &file_len);
     if (data != NULL) {
         mp_obj_stringio_t *o = m_new_obj(mp_obj_stringio_t);
         o->base.type = &mp_type_bytesio;
         o->vstr = m_new_obj(vstr_t);
-        vstr_init_fixed_buf(o->vstr, len + 1, (char*)data);
-        o->vstr->len = len;
+        vstr_init_fixed_buf(o->vstr, file_len + 1, (char*)data);
+        o->vstr->len = file_len;
         o->pos = 0;
         return MP_OBJ_FROM_PTR(o);
     }

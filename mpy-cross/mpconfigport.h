@@ -85,6 +85,50 @@
 #define MICROPY_PY_IO               (0)
 #define MICROPY_PY_SYS              (0)
 
+// MINGW only handles these errno names.
+#ifdef __MINGW32__
+#define MICROPY_PY_UERRNO_LIST \
+  X(EPERM) \
+  X(ENOENT) \
+  X(ESRCH) \
+  X(EINTR) \
+  X(EIO) \
+  X(ENXIO) \
+  X(E2BIG) \
+  X(ENOEXEC) \
+  X(EBADF) \
+  X(ECHILD) \
+  X(EAGAIN) \
+  X(ENOMEM) \
+  X(EACCES) \
+  X(EFAULT) \
+  X(EBUSY) \
+  X(EEXIST) \
+  X(EXDEV) \
+  X(ENODEV) \
+  X(ENOTDIR) \
+  X(EISDIR) \
+  X(EINVAL) \
+  X(ENFILE) \
+  X(EMFILE) \
+  X(ENOTTY) \
+  X(EFBIG) \
+  X(ENOSPC) \
+  X(ESPIPE) \
+  X(EROFS) \
+  X(EMLINK) \
+  X(EPIPE) \
+  X(EDOM) \
+  X(ERANGE) \
+  X(EDEADLOCK) \
+  X(EDEADLK) \
+  X(ENAMETOOLONG) \
+  X(ENOLCK) \
+  X(ENOSYS) \
+  X(ENOTEMPTY) \
+  X(EILSEQ)
+#endif
+  
 // type definitions for the specific machine
 
 #ifdef __LP64__
@@ -97,8 +141,8 @@ typedef unsigned __int64 mp_uint_t;
 #else
 // These are definitions for machines where sizeof(int) == sizeof(void*),
 // regardless for actual size.
-typedef long mp_int_t; // must be pointer size
-typedef unsigned long mp_uint_t; // must be pointer size
+typedef int mp_int_t; // must be pointer size
+typedef unsigned int mp_uint_t; // must be pointer size
 #endif
 
 // Cannot include <sys/types.h>, as it may lead to symbol name clashes

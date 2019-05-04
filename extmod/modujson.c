@@ -32,6 +32,8 @@
 #include "py/runtime.h"
 #include "py/stream.h"
 
+#include "supervisor/shared/translate.h"
+
 #if MICROPY_PY_UJSON
 
 STATIC mp_obj_t mod_ujson_dump(mp_obj_t obj, mp_obj_t stream) {
@@ -276,7 +278,7 @@ STATIC mp_obj_t mod_ujson_load(mp_obj_t stream_obj) {
     return stack_top;
 
     fail:
-    mp_raise_ValueError("syntax error in JSON");
+    mp_raise_ValueError(translate("syntax error in JSON"));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mod_ujson_load_obj, mod_ujson_load);
 
@@ -290,7 +292,11 @@ STATIC mp_obj_t mod_ujson_loads(mp_obj_t obj) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(mod_ujson_loads_obj, mod_ujson_loads);
 
 STATIC const mp_rom_map_elem_t mp_module_ujson_globals_table[] = {
+#if CIRCUITPY
+    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_json) },
+#else
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_ujson) },
+#endif
     { MP_ROM_QSTR(MP_QSTR_dump), MP_ROM_PTR(&mod_ujson_dump_obj) },
     { MP_ROM_QSTR(MP_QSTR_dumps), MP_ROM_PTR(&mod_ujson_dumps_obj) },
     { MP_ROM_QSTR(MP_QSTR_load), MP_ROM_PTR(&mod_ujson_load_obj) },

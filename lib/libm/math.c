@@ -30,16 +30,11 @@ typedef float float_t;
 typedef union {
     float f;
     struct {
-        uint32_t m : 23;
-        uint32_t e : 8;
-        uint32_t s : 1;
+        uint64_t m : 23;
+        uint64_t e : 8;
+        uint64_t s : 1;
     };
 } float_s_t;
-
-int __signbitf(float f) {
-    float_s_t u = {.f = f};
-    return u.s;
-}
 
 #ifndef NDEBUG
 float copysignf(float x, float y) {
@@ -57,14 +52,10 @@ static const float _M_LN10 = 2.30258509299404; // 0x40135d8e
 float log10f(float x) { return logf(x) / (float)_M_LN10; }
 
 float tanhf(float x) {
-    int sign = 0;
-    if (x < 0) {
-        sign = 1;
-        x = -x;
+    if (isinf(x)) {
+        return copysignf(1, x);
     }
-    x = expm1f(-2 * x);
-    x = x / (x + 2);
-    return sign ? x : -x;
+    return sinhf(x) / coshf(x);
 }
 
 /*****************************************************************************/
@@ -342,7 +333,7 @@ float powf(float x, float y)
 			return sn*huge*huge;  /* overflow */
 	} else if ((j&0x7fffffff) > 0x43160000)  /* z < -150 */ // FIXME: check should be  (uint32_t)j > 0xc3160000
 		return sn*tiny*tiny;  /* underflow */
-	else if (j == 0xc3160000) {  /* z == -150 */
+	else if (j == (int32_t) 0xc3160000) {  /* z == -150 */
 		if (p_l <= z-p_h)
 			return sn*tiny*tiny;  /* underflow */
 	}
@@ -589,13 +580,13 @@ float expm1f(float x)
 /*****************************************************************************/
 /*****************************************************************************/
 
-/* k is such that k*ln2 has minimal relative error and x - kln2 > log(FLT_MIN) */
-static const int k = 235;
-static const float kln2 = 0x1.45c778p+7f;
 
 /* expf(x)/2 for x >= log(FLT_MAX), slightly better than 0.5f*expf(x/2)*expf(x/2) */
 float __expo2f(float x)
 {
+	/* k is such that k*ln2 has minimal relative error and x - kln2 > log(FLT_MIN) */
+	static const int k = 235;
+	static const float kln2 = 0x1.45c778p+7f;
 	float scale;
 
 	/* note that k is odd and scale*scale overflows */

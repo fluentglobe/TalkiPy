@@ -28,6 +28,8 @@
 #include <string.h>
 
 #include "py/mpconfig.h"
+#include "supervisor/shared/translate.h"
+
 #if MICROPY_PY_COLLECTIONS_DEQUE
 
 #include "py/runtime.h"
@@ -42,8 +44,8 @@ typedef struct _mp_obj_deque_t {
     #define FLAG_CHECK_OVERFLOW 1
 } mp_obj_deque_t;
 
-STATIC mp_obj_t deque_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
-    mp_arg_check_num(n_args, n_kw, 2, 3, false);
+STATIC mp_obj_t deque_make_new(const mp_obj_type_t *type, size_t n_args, const mp_obj_t *args, mp_map_t *kw_args) {
+    mp_arg_check_num(n_args, kw_args, 2, 3, false);
 
     /* Initialization from existing sequence is not supported, so an empty
        tuple must be passed as such. */
@@ -102,7 +104,7 @@ STATIC mp_obj_t mp_obj_deque_append(mp_obj_t self_in, mp_obj_t arg) {
     }
 
     if (self->flags & FLAG_CHECK_OVERFLOW && new_i_put == self->i_get) {
-        mp_raise_msg(&mp_type_IndexError, "full");
+        mp_raise_msg(&mp_type_IndexError, translate("full"));
     }
 
     self->items[self->i_put] = arg;
@@ -122,7 +124,7 @@ STATIC mp_obj_t deque_popleft(mp_obj_t self_in) {
     mp_obj_deque_t *self = MP_OBJ_TO_PTR(self_in);
 
     if (self->i_get == self->i_put) {
-        mp_raise_msg(&mp_type_IndexError, "empty");
+        mp_raise_msg(&mp_type_IndexError, translate("empty"));
     }
 
     mp_obj_t ret = self->items[self->i_get];

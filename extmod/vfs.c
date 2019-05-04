@@ -38,10 +38,6 @@
 #include "extmod/vfs_fat.h"
 #endif
 
-#if MICROPY_VFS_POSIX
-#include "extmod/vfs_posix.h"
-#endif
-
 // For mp_vfs_proxy_call, the maximum number of additional args that can be passed.
 // A fixed maximum size is used to avoid the need for a costly variable array.
 #define PROXY_MAX_ARGS (2)
@@ -180,7 +176,7 @@ mp_obj_t mp_vfs_mount(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args
         // auto-detect the filesystem and create the corresponding VFS entity.
         // (At the moment we only support FAT filesystems.)
         #if MICROPY_VFS_FAT
-        vfs_obj = mp_fat_vfs_type.make_new(&mp_fat_vfs_type, 1, 0, &vfs_obj);
+        vfs_obj = mp_fat_vfs_type.make_new(&mp_fat_vfs_type, 1, &vfs_obj, NULL);
         #endif
     }
 
@@ -268,13 +264,6 @@ mp_obj_t mp_vfs_open(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
-    #if MICROPY_VFS_POSIX
-    // If the file is an integer then delegate straight to the POSIX handler
-    if (MP_OBJ_IS_SMALL_INT(args[ARG_file].u_obj)) {
-        return mp_vfs_posix_file_open(&mp_type_textio, args[ARG_file].u_obj, args[ARG_mode].u_obj);
-    }
-    #endif
-
     mp_vfs_mount_t *vfs = lookup_path(args[ARG_file].u_obj, &args[ARG_file].u_obj);
     return mp_vfs_proxy_call(vfs, MP_QSTR_open, 2, (mp_obj_t*)&args);
 }
@@ -322,18 +311,7 @@ mp_obj_t mp_vfs_getcwd(void) {
 }
 MP_DEFINE_CONST_FUN_OBJ_0(mp_vfs_getcwd_obj, mp_vfs_getcwd);
 
-typedef struct _mp_vfs_ilistdir_it_t {
-    mp_obj_base_t base;
-    mp_fun_1_t iternext;
-    union {
-        mp_vfs_mount_t *vfs;
-        mp_obj_t iter;
-    } cur;
-    bool is_str;
-    bool is_iter;
-} mp_vfs_ilistdir_it_t;
-
-STATIC mp_obj_t mp_vfs_ilistdir_it_iternext(mp_obj_t self_in) {
+mp_obj_t mp_vfs_ilistdir_it_iternext(mp_obj_t self_in) {
     mp_vfs_ilistdir_it_t *self = MP_OBJ_TO_PTR(self_in);
     if (self->is_iter) {
         // continue delegating to root dir

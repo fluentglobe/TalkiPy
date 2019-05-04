@@ -37,7 +37,6 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <errno.h>
-#include <math.h>
 
 #include "py/objtuple.h"
 #include "py/objstr.h"
@@ -45,6 +44,8 @@
 #include "py/stream.h"
 #include "py/builtin.h"
 #include "py/mphal.h"
+
+#include "supervisor/shared/translate.h"
 
 /*
   The idea of this module is to implement reasonable minimum of
@@ -66,7 +67,6 @@
 typedef struct _mp_obj_socket_t {
     mp_obj_base_t base;
     int fd;
-    bool blocking;
 } mp_obj_socket_t;
 
 const mp_obj_type_t mp_type_socket;
@@ -80,7 +80,6 @@ STATIC mp_obj_socket_t *socket_new(int fd) {
     mp_obj_socket_t *o = m_new_obj(mp_obj_socket_t);
     o->base.type = &mp_type_socket;
     o->fd = fd;
-    o->blocking = true;
     return o;
 }
 
@@ -95,14 +94,7 @@ STATIC mp_uint_t socket_read(mp_obj_t o_in, void *buf, mp_uint_t size, int *errc
     mp_obj_socket_t *o = MP_OBJ_TO_PTR(o_in);
     mp_int_t r = read(o->fd, buf, size);
     if (r == -1) {
-        int err = errno;
-        // On blocking socket, we get EAGAIN in case SO_RCVTIMEO/SO_SNDTIMEO
-        // timed out, and need to convert that to ETIMEDOUT.
-        if (err == EAGAIN && o->blocking) {
-            err = MP_ETIMEDOUT;
-        }
-
-        *errcode = err;
+        *errcode = errno;
         return MP_STREAM_ERROR;
     }
     return r;
@@ -112,14 +104,7 @@ STATIC mp_uint_t socket_write(mp_obj_t o_in, const void *buf, mp_uint_t size, in
     mp_obj_socket_t *o = MP_OBJ_TO_PTR(o_in);
     mp_int_t r = write(o->fd, buf, size);
     if (r == -1) {
-        int err = errno;
-        // On blocking socket, we get EAGAIN in case SO_RCVTIMEO/SO_SNDTIMEO
-        // timed out, and need to convert that to ETIMEDOUT.
-        if (err == EAGAIN && o->blocking) {
-            err = MP_ETIMEDOUT;
-        }
-
-        *errcode = err;
+        *errcode = errno;
         return MP_STREAM_ERROR;
     }
     return r;
@@ -139,9 +124,6 @@ STATIC mp_uint_t socket_ioctl(mp_obj_t o_in, mp_uint_t request, uintptr_t arg, i
             // closing fd, fsync() it.
             close(self->fd);
             return 0;
-
-        case MP_STREAM_GET_FILENO:
-            return self->fd;
 
         default:
             *errcode = MP_EINVAL;
@@ -327,48 +309,9 @@ STATIC mp_obj_t socket_setblocking(mp_obj_t self_in, mp_obj_t flag_in) {
     }
     flags = fcntl(self->fd, F_SETFL, flags);
     RAISE_ERRNO(flags, errno);
-    self->blocking = val;
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(socket_setblocking_obj, socket_setblocking);
-
-STATIC mp_obj_t socket_settimeout(mp_obj_t self_in, mp_obj_t timeout_in) {
-    mp_obj_socket_t *self = MP_OBJ_TO_PTR(self_in);
-    struct timeval tv = {0,};
-    bool new_blocking = true;
-
-    if (timeout_in == mp_const_none) {
-        setsockopt(self->fd, SOL_SOCKET, SO_RCVTIMEO, NULL, 0);
-        setsockopt(self->fd, SOL_SOCKET, SO_SNDTIMEO, NULL, 0);
-    } else {
-        #if MICROPY_PY_BUILTINS_FLOAT
-        mp_float_t val = mp_obj_get_float(timeout_in);
-        double ipart;
-        tv.tv_usec = round(modf(val, &ipart) * 1000000);
-        tv.tv_sec = ipart;
-        #else
-        tv.tv_sec = mp_obj_get_int(timeout_in);
-        #endif
-
-        // For SO_RCVTIMEO/SO_SNDTIMEO, zero timeout means infinity, but
-        // for Python API it means non-blocking.
-        if (tv.tv_sec == 0 && tv.tv_usec == 0) {
-            new_blocking = false;
-        } else {
-            setsockopt(self->fd, SOL_SOCKET, SO_RCVTIMEO,
-                       &tv, sizeof(struct timeval));
-            setsockopt(self->fd, SOL_SOCKET, SO_SNDTIMEO,
-                       &tv, sizeof(struct timeval));
-        }
-    }
-
-    if (self->blocking != new_blocking) {
-        socket_setblocking(self_in, mp_obj_new_bool(new_blocking));
-    }
-
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(socket_settimeout_obj, socket_settimeout);
 
 STATIC mp_obj_t socket_makefile(size_t n_args, const mp_obj_t *args) {
     // TODO: CPython explicitly says that closing returned object doesn't close
@@ -382,9 +325,9 @@ STATIC mp_obj_t socket_makefile(size_t n_args, const mp_obj_t *args) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(socket_makefile_obj, 1, 3, socket_makefile);
 
-STATIC mp_obj_t socket_make_new(const mp_obj_type_t *type_in, size_t n_args, size_t n_kw, const mp_obj_t *args) {
+STATIC mp_obj_t socket_make_new(const mp_obj_type_t *type_in, size_t n_args, const mp_obj_t *args, mp_map_t *kw_args) {
     (void)type_in;
-    (void)n_kw;
+    (void)kw_args;
 
     int family = AF_INET;
     int type = SOCK_STREAM;
@@ -425,7 +368,6 @@ STATIC const mp_rom_map_elem_t usocket_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_sendto), MP_ROM_PTR(&socket_sendto_obj) },
     { MP_ROM_QSTR(MP_QSTR_setsockopt), MP_ROM_PTR(&socket_setsockopt_obj) },
     { MP_ROM_QSTR(MP_QSTR_setblocking), MP_ROM_PTR(&socket_setblocking_obj) },
-    { MP_ROM_QSTR(MP_QSTR_settimeout), MP_ROM_PTR(&socket_settimeout_obj) },
     { MP_ROM_QSTR(MP_QSTR_close), MP_ROM_PTR(&mp_stream_close_obj) },
 };
 
@@ -529,7 +471,7 @@ STATIC mp_obj_t mod_socket_getaddrinfo(size_t n_args, const mp_obj_t *args) {
 
     if (res != 0) {
         // CPython: socket.gaierror
-        nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_OSError, "[addrinfo error %d]", res));
+        nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_OSError, translate("[addrinfo error %d]"), res));
     }
     assert(addr_list);
 

@@ -85,6 +85,19 @@ STATIC mp_uint_t stdio_write(mp_obj_t self_in, const void *buf, mp_uint_t size, 
     }
 }
 
+STATIC mp_uint_t stdio_ioctl(mp_obj_t self_in, mp_uint_t request, uintptr_t arg, int *errcode) {
+    sys_stdio_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    (void) self;
+
+    // For now, pretend we actually flush the stdio stream.
+    if (request == MP_STREAM_FLUSH) {
+        return 0;
+    } else {
+        *errcode = MP_EINVAL;
+        return MP_STREAM_ERROR;
+    }
+}
+
 STATIC mp_obj_t stdio_obj___exit__(size_t n_args, const mp_obj_t *args) {
     return mp_const_none;
 }
@@ -112,6 +125,7 @@ STATIC MP_DEFINE_CONST_DICT(stdio_locals_dict, stdio_locals_dict_table);
 STATIC const mp_stream_p_t stdio_obj_stream_p = {
     .read = stdio_read,
     .write = stdio_write,
+    .ioctl = stdio_ioctl,
     .is_text = true,
 };
 
@@ -156,7 +170,7 @@ STATIC const mp_obj_type_t stdio_buffer_obj_type = {
     .getiter = mp_identity_getiter,
     .iternext = mp_stream_unbuffered_iter,
     .protocol = &stdio_buffer_obj_stream_p,
-    .locals_dict = (mp_obj_dict_t*)&stdio_locals_dict,
+    .locals_dict = (mp_obj_t)&stdio_locals_dict,
 };
 
 STATIC const sys_stdio_obj_t stdio_buffer_obj = {{&stdio_buffer_obj_type}, .fd = 0}; // fd unused

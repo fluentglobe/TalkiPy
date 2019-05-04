@@ -29,7 +29,7 @@
 #if MICROPY_PY_COLLECTIONS
 
 STATIC const mp_rom_map_elem_t mp_module_collections_globals_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_ucollections) },
+    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_collections) },
     #if MICROPY_PY_COLLECTIONS_DEQUE
     { MP_ROM_QSTR(MP_QSTR_deque), MP_ROM_PTR(&mp_type_deque) },
     #endif

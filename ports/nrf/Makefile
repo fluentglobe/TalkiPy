@@ -1,286 +1,263 @@
-# Select the board to build for: if not given on the command line,
-# then default to pca10040.
-BOARD ?= pca10040
-ifeq ($(wildcard boards/$(BOARD)/.),)
-$(error Invalid BOARD specified)
+# This file is part of the MicroPython project, http://micropython.org/
+#
+# The MIT License (MIT)
+#
+# Copyright (c) 2019 Dan Halbert for Adafruit Industries
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
+# Select the board to build for.
+ifeq ($(BOARD),)
+  $(info You must provide a BOARD parameter with 'BOARD=')
+  $(info Possible values are:)
+  $(info $(sort $(subst /.,,$(subst boards/,,$(wildcard boards/*/.)))))
+  $(error BOARD not defined)
+else
+  ifeq ($(wildcard boards/$(BOARD)/.),)
+    $(error Invalid BOARD specified)
+  endif
 endif
 
-# If SoftDevice is selected, try to use that one.
-SD ?=
+CLI_SD := $(SD)
 SD_LOWER = $(shell echo $(SD) | tr '[:upper:]' '[:lower:]')
 
-# TODO: Verify that it is a valid target.
+# Build directory with SD if it's different from the default.
+BUILD ?= $(if $(CLI_SD),build-$(BOARD)-$(SD_LOWER),build-$(BOARD))
 
+include ../../py/mkenv.mk
+# Board-specific
 include boards/$(BOARD)/mpconfigboard.mk
-
-ifeq ($(SD), )
-	# If the build directory is not given, make it reflect the board name.
-	BUILD ?= build-$(BOARD)
-	include ../../py/mkenv.mk
-else
-	# If the build directory is not given, make it reflect the board name.
-	BUILD ?= build-$(BOARD)-$(SD_LOWER)
-	include ../../py/mkenv.mk
-
-	LD_FILES += boards/$(SD_LOWER)_$(SOFTDEV_VERSION).ld
-	include drivers/bluetooth/bluetooth_common.mk
-endif
-
-LD_FILES += boards/memory.ld boards/common.ld
-
-ifneq ($(LD_FILE),)
-	# Use custom LD file
-	LD_FILES = $(LD_FILE)
-endif
-
--include boards/$(BOARD)/modules/boardmodules.mk
+# Port-specific
+include mpconfigport.mk
+# CircuitPython-specific
+include $(TOP)/py/circuitpy_mpconfig.mk
 
 # qstr definitions (must come before including py.mk)
-QSTR_DEFS = qstrdefsport.h $(BUILD)/pins_qstr.h
+QSTR_DEFS = qstrdefsport.h
 
 # include py core make definitions
-include ../../py/py.mk
+include $(TOP)/py/py.mk
 
-MICROPY_FATFS ?= 0
-FATFS_DIR = lib/oofatfs
-MPY_CROSS = ../../mpy-cross/mpy-cross
-MPY_TOOL = ../../tools/mpy-tool.py
+include $(TOP)/supervisor/supervisor.mk
+
+# Include make rules and variables common across CircuitPython builds.
+include $(TOP)/py/circuitpy_defns.mk
+
+ifneq ($(SD), )
+	include bluetooth/bluetooth_common.mk
+endif
+
+FROZEN_MPY_DIR = freeze
 
 CROSS_COMPILE = arm-none-eabi-
+
+FATFS_DIR = lib/oofatfs
 
 INC += -I.
 INC += -I../..
 INC += -I$(BUILD)
+INC += -I$(BUILD)/genhdr
 INC += -I./../../lib/cmsis/inc
-INC += -I./modules/machine
+INC += -I./boards/$(BOARD)
 INC += -I./modules/ubluepy
-INC += -I./modules/music
-INC += -I./modules/random
 INC += -I./modules/ble
-INC += -I./modules/board
+INC += -I./nrfx
+INC += -I./nrfx/hal
+INC += -I./nrfx/mdk
+INC += -I./nrfx/drivers/include
+INC += -I./bluetooth
+INC += -I./peripherals
 INC += -I../../lib/mp-readline
-INC += -I./drivers/bluetooth
-INC += -I./drivers
-INC += -I../../lib/nrfx/
-INC += -I../../lib/nrfx/drivers
-INC += -I../../lib/nrfx/drivers/include
-INC += -I../../lib/nrfx/mdk
-INC += -I../../lib/nrfx/hal
-
-MCU_VARIANT_UPPER = $(shell echo $(MCU_VARIANT) | tr '[:lower:]' '[:upper:]')
-MCU_SUB_VARIANT_UPPER = $(shell echo $(MCU_SUB_VARIANT) | tr '[:lower:]' '[:upper:]')
-
-# Figure out correct system file to use base on chip sub-variant name.
-SYSTEM_C_SRC :=
-ifeq ($(MCU_SUB_VARIANT),nrf51822)
-	SYSTEM_C_SRC += $(addprefix lib/nrfx/mdk/, system_nrf51.c)
-        NRF_DEFINES += -D$(MCU_VARIANT_UPPER)
-else ifeq ($(MCU_SUB_VARIANT),nrf52832)
-	SYSTEM_C_SRC += $(addprefix lib/nrfx/mdk/, system_nrf52.c)
-        NRF_DEFINES += -D$(MCU_VARIANT_UPPER)
-else ifeq ($(MCU_SUB_VARIANT),nrf52840)
-	SYSTEM_C_SRC += $(addprefix lib/nrfx/mdk/, system_nrf52840.c)
-	# Do not pass MCU_VARIANT_UPPER flag, as NRF52 defines NRF52832 only.
-endif
-
-NRF_DEFINES += -D$(MCU_SUB_VARIANT_UPPER)
-NRF_DEFINES += -DCONFIG_GPIO_AS_PINRESET
-
-CFLAGS_CORTEX_M = -mthumb -mabi=aapcs -fsingle-precision-constant -Wdouble-promotion
-
-CFLAGS_MCU_m4 = $(CFLAGS_CORTEX_M) -mtune=cortex-m4 -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard
-
-CFLAGS_MCU_m0 = $(CFLAGS_CORTEX_M) -fshort-enums -mtune=cortex-m0 -mcpu=cortex-m0 -mfloat-abi=soft -fno-builtin
-
-LTO ?= 1
-ifeq ($(LTO),1)
-CFLAGS += -flto
-else
-CFLAGS += -ffunction-sections -fdata-sections
-LDFLAGS += -Wl,--gc-sections
-endif
-
-
-CFLAGS += $(CFLAGS_MCU_$(MCU_SERIES)) 
-CFLAGS += $(INC) -Wall -Werror -g -ansi -std=c11 -nostdlib $(COPT) $(NRF_DEFINES) $(CFLAGS_MOD)
-CFLAGS += -fno-strict-aliasing
-CFLAGS += -Iboards/$(BOARD)
-CFLAGS += -DNRF5_HAL_H='<$(MCU_VARIANT)_hal.h>'
-
-LDFLAGS = $(CFLAGS)
-LDFLAGS += -Xlinker -Map=$(@:.elf=.map)
-LDFLAGS += -mthumb -mabi=aapcs $(addprefix -T,$(LD_FILES)) -L boards/
+INC += -I../../lib/tinyusb/src
+INC += -I../../supervisor/shared/usb
 
 #Debugging/Optimization
 ifeq ($(DEBUG), 1)
-#ASMFLAGS += -g -gtabs+
-CFLAGS += -O0 -ggdb
-LDFLAGS += -O0
+  CFLAGS += -ggdb
+  # You may want to enable these flags to make setting breakpoints easier.
+  CFLAGS += -fno-inline -fno-ipa-sra
 else
-CFLAGS += -Os -DNDEBUG
-LDFLAGS += -Os
-endif
-
-LIBS = \
-
-ifeq ($(MCU_VARIANT), nrf52)
-LIBGCC_FILE_NAME = $(shell $(CC) $(CFLAGS) -print-libgcc-file-name)
-
-LIBS += -L $(dir $(LIBGCC_FILE_NAME)) -lgcc
-
-
-SRC_LIB += $(addprefix lib/,\
-        libm/math.c \
-        libm/fmodf.c \
-        libm/nearbyintf.c \
-        libm/ef_sqrt.c \
-        libm/kf_rem_pio2.c \
-        libm/kf_sin.c \
-        libm/kf_cos.c \
-        libm/kf_tan.c \
-        libm/ef_rem_pio2.c \
-        libm/sf_sin.c \
-        libm/sf_cos.c \
-        libm/sf_tan.c \
-        libm/sf_frexp.c \
-        libm/sf_modf.c \
-        libm/sf_ldexp.c \
-        libm/asinfacosf.c \
-        libm/atanf.c \
-        libm/atan2f.c \
-	)
-
-endif
-
-SRC_LIB += $(addprefix lib/,\
-	libc/string0.c \
-	mp-readline/readline.c \
-	utils/pyexec.c \
-	utils/interrupt_char.c \
-	timeutils/timeutils.c \
-	)
-
-ifeq ($(MICROPY_FATFS), 1)
-SRC_LIB += $(addprefix lib/,\
-        oofatfs/ff.c \
-        oofatfs/option/unicode.c \
-        )
+  CFLAGS += -Os -DNDEBUG
+  # TODO: Test with -flto
+  ### CFLAGS += -flto
 endif
 
 
-SRC_NRFX += $(addprefix lib/nrfx/drivers/src/,\
-	prs/nrfx_prs.c \
-	nrfx_uart.c \
-	nrfx_adc.c \
-	nrfx_saadc.c \
-	nrfx_rng.c \
-	nrfx_twi.c \
-	nrfx_spi.c \
-	nrfx_spim.c \
-	nrfx_rtc.c \
-	nrfx_timer.c \
-	nrfx_pwm.c \
-	nrfx_gpiote.c \
+CFLAGS += $(INC) -Wall -Werror -std=gnu11 -nostdlib $(BASE_CFLAGS) $(CFLAGS_MOD) $(COPT)
+
+# Undo some warnings.
+# nrfx uses undefined preprocessor variables quite casually, so we can't do warning checks for these.
+CFLAGS += -Wno-undef
+# nrfx does casts that increase alignment requirements.
+CFLAGS += -Wno-cast-align
+
+NRF_DEFINES += -DCONFIG_GPIO_AS_PINRESET
+CFLAGS += $(NRF_DEFINES)
+
+CFLAGS += \
+	-mthumb \
+	-mabi=aapcs-linux \
+	-mfloat-abi=hard \
+	-mcpu=cortex-m4 \
+	-mfpu=fpv4-sp-d16
+
+# TODO: check this
+CFLAGS += -D__START=main
+
+LDFLAGS = $(CFLAGS) -nostartfiles -fshort-enums -Wl,-nostdlib -Wl,-T,$(LD_FILE) -Wl,-Map=$@.map -Wl,-cref -Wl,-gc-sections -specs=nano.specs
+LIBS := -lgcc -lc
+
+LDFLAGS += -mthumb -mcpu=cortex-m4
+
+# Use toolchain libm if we're not using our own.
+ifndef INTERNAL_LIBM
+LIBS += -lm
+endif
+
+# TinyUSB defines
+CFLAGS += -DCFG_TUSB_MCU=OPT_MCU_NRF5X -DCFG_TUD_CDC_RX_BUFSIZE=1024 -DCFG_TUD_CDC_TX_BUFSIZE=1024 -DCFG_TUD_MSC_BUFSIZE=4096 -DCFG_TUD_MIDI_RX_BUFSIZE=128 -DCFG_TUD_MIDI_TX_BUFSIZE=128
+
+SRC_NRFX = $(addprefix nrfx/,\
+	drivers/src/nrfx_power.c \
+	drivers/src/nrfx_spim.c \
+	drivers/src/nrfx_timer.c \
+	drivers/src/nrfx_twim.c \
+	drivers/src/nrfx_uarte.c \
+	drivers/src/nrfx_gpiote.c \
+	drivers/src/nrfx_rtc.c \
 	)
 
-SRC_NRFX_HAL += $(addprefix lib/nrfx/hal/,\
-	nrf_nvmc.c \
-	)
+ifdef EXTERNAL_FLASH_DEVICES
+	ifeq ($(QSPI_FLASH_FILESYSTEM),1)
+		SRC_NRFX += nrfx/drivers/src/nrfx_qspi.c
+	endif
+endif
+
 
 SRC_C += \
-	main.c \
-	mphalport.c \
-	help.c \
-	gccollect.c \
-	pin_named_pins.c \
+	background.c \
 	fatfs_port.c \
-	drivers/flash.c \
-	drivers/softpwm.c \
-	drivers/ticker.c \
-	drivers/bluetooth/ble_drv.c \
-	drivers/bluetooth/ble_uart.c \
+	mphalport.c \
+	tick.c \
+	boards/$(BOARD)/board.c \
+	boards/$(BOARD)/pins.c \
+	device/$(MCU_VARIANT)/startup_$(MCU_SUB_VARIANT).c \
+	bluetooth/ble_drv.c \
+	bluetooth/ble_uart.c \
+	lib/libc/string0.c \
+	lib/mp-readline/readline.c \
+	lib/oofatfs/ff.c \
+	lib/oofatfs/option/ccsbcs.c \
+	lib/timeutils/timeutils.c \
+	lib/utils/buffer_helper.c \
+	lib/utils/context_manager_helpers.c \
+	lib/utils/interrupt_char.c \
+	lib/utils/pyexec.c \
+	lib/utils/stdout_helpers.c \
+	lib/utils/sys_stdio_mphal.c \
+	nrfx/hal/nrf_nvmc.c \
+	nrfx/mdk/system_$(MCU_SUB_VARIANT).c \
+	peripherals/nrf/cache.c \
+	peripherals/nrf/clocks.c \
+	peripherals/nrf/$(MCU_CHIP)/pins.c \
+	peripherals/nrf/$(MCU_CHIP)/power.c \
+        peripherals/nrf/nvm.c \
+	peripherals/nrf/timers.c \
+	sd_mutex.c \
+	supervisor/shared/memory.c
 
-DRIVERS_SRC_C += $(addprefix modules/,\
-	machine/modmachine.c \
-	machine/uart.c \
-	machine/spi.c \
-	machine/i2c.c \
-	machine/adc.c \
-	machine/pin.c \
-	machine/timer.c \
-	machine/rtcounter.c \
-	machine/pwm.c \
-	machine/temp.c \
-	uos/moduos.c \
-	uos/microbitfs.c \
-	utime/modutime.c \
-	board/modboard.c \
-	board/led.c \
-	ubluepy/modubluepy.c \
-	ubluepy/ubluepy_peripheral.c \
-	ubluepy/ubluepy_service.c \
-	ubluepy/ubluepy_characteristic.c \
-	ubluepy/ubluepy_uuid.c \
-	ubluepy/ubluepy_delegate.c \
-	ubluepy/ubluepy_constants.c \
-	ubluepy/ubluepy_descriptor.c \
-	ubluepy/ubluepy_scanner.c \
-	ubluepy/ubluepy_scan_entry.c \
-	music/modmusic.c \
-	music/musictunes.c \
-	ble/modble.c \
-	random/modrandom.c \
-	)
-
-# Custom micropython startup file with smaller interrupt vector table
-# than the file provided in nrfx.
+# USB source files for nrf52840
+ifeq ($(MCU_SUB_VARIANT),nrf52840)
 SRC_C += \
-	device/startup_$(MCU_SUB_VARIANT).c \
+	lib/tinyusb/src/portable/nordic/nrf5x/dcd_nrf5x.c \
+	lib/tinyusb/src/portable/nordic/nrf5x/hal_nrf5x.c
+endif
 
-ifneq ($(FROZEN_MPY_DIR),)
+SRC_COMMON_HAL_EXPANDED = $(addprefix shared-bindings/, $(SRC_COMMON_HAL)) \
+                          $(addprefix shared-bindings/, $(SRC_BINDINGS_ENUMS)) \
+                          $(addprefix common-hal/, $(SRC_COMMON_HAL))
+
+SRC_SHARED_MODULE_EXPANDED = $(addprefix shared-bindings/, $(SRC_SHARED_MODULE)) \
+                             $(addprefix shared-module/, $(SRC_SHARED_MODULE))
+
+SRC_S = supervisor/cpu.s
+
 FROZEN_MPY_PY_FILES := $(shell find -L $(FROZEN_MPY_DIR) -type f -name '*.py')
 FROZEN_MPY_MPY_FILES := $(addprefix $(BUILD)/,$(FROZEN_MPY_PY_FILES:.py=.mpy))
-endif
 
-OBJ += $(PY_O) $(addprefix $(BUILD)/, $(SRC_C:.c=.o))
-OBJ += $(addprefix $(BUILD)/, $(SRC_LIB:.c=.o))
-OBJ += $(addprefix $(BUILD)/, $(SRC_MOD:.c=.o))
+OBJ += $(PY_O) $(SUPERVISOR_O) $(addprefix $(BUILD)/, $(SRC_C:.c=.o))
 OBJ += $(addprefix $(BUILD)/, $(SRC_NRFX:.c=.o))
-OBJ += $(addprefix $(BUILD)/, $(SRC_NRFX_HAL:.c=.o))
-OBJ += $(addprefix $(BUILD)/, $(DRIVERS_SRC_C:.c=.o))
-OBJ += $(addprefix $(BUILD)/, $(SYSTEM_C_SRC:.c=.o))
-OBJ += $(BUILD)/pins_gen.o
+OBJ += $(addprefix $(BUILD)/, $(SRC_COMMON_HAL_EXPANDED:.c=.o))
+OBJ += $(addprefix $(BUILD)/, $(SRC_SHARED_MODULE_EXPANDED:.c=.o))
+ifeq ($(INTERNAL_LIBM),1)
+OBJ += $(addprefix $(BUILD)/, $(SRC_LIBM:.c=.o))
+endif
+OBJ += $(addprefix $(BUILD)/, $(SRC_S:.s=.o))
+OBJ += $(addprefix $(BUILD)/, $(SRC_MOD:.c=.o))
 
 $(BUILD)/$(FATFS_DIR)/ff.o: COPT += -Os
 $(filter $(PY_BUILD)/../extmod/vfs_fat_%.o, $(PY_O)): COPT += -Os
 
-.PHONY: all flash sd binary hex
+# List of sources for qstr extraction
+SRC_QSTR += $(SRC_C) $(SRC_SUPERVISOR) $(SRC_MOD) $(SRC_COMMON_HAL_EXPANDED) $(SRC_SHARED_MODULE_EXPANDED)
+# Sources that only hold QSTRs after pre-processing.
+SRC_QSTR_PREPROCESSOR +=
 
-all: binary hex
 
-OUTPUT_FILENAME = firmware
+all: $(BUILD)/firmware.bin $(BUILD)/firmware.uf2
 
-## Create binary .bin file from the .out file
-binary: $(BUILD)/$(OUTPUT_FILENAME).bin
+$(BUILD)/firmware.elf: $(OBJ)
+	$(STEPECHO) "LINK $@"
+	$(Q)$(CC) -o $@ $(LDFLAGS) $^ -Wl,--start-group $(LIBS) -Wl,--end-group
+	$(Q)$(SIZE) $@ | $(PYTHON3) $(TOP)/tools/build_memory_info.py $(LD_FILE)
 
-$(BUILD)/$(OUTPUT_FILENAME).bin: $(BUILD)/$(OUTPUT_FILENAME).elf
-	$(OBJCOPY) -O binary $< $@
+$(BUILD)/firmware.bin: $(BUILD)/firmware.elf
+	$(STEPECHO) "Create $@"
+	$(Q)$(OBJCOPY) -O binary $^ $@
+#	$(Q)$(OBJCOPY) -O binary -j .vectors -j .text -j .data $^ $@
 
-## Create binary .hex file from the .out file
-hex: $(BUILD)/$(OUTPUT_FILENAME).hex
+$(BUILD)/firmware.hex: $(BUILD)/firmware.elf
+	$(STEPECHO) "Create $@"
+	$(Q)$(OBJCOPY) -O ihex $^ $@
+#	$(Q)$(OBJCOPY) -O ihex -j .vectors -j .text -j .data $^ $@
 
-$(BUILD)/$(OUTPUT_FILENAME).hex: $(BUILD)/$(OUTPUT_FILENAME).elf
-	$(OBJCOPY) -O ihex $< $@
+$(BUILD)/firmware.uf2: $(BUILD)/firmware.hex
+	$(ECHO) "Create $@"
+	$(PYTHON3) $(TOP)/tools/uf2/utils/uf2conv.py -f 0xADA52840 -c -o "$(BUILD)/firmware.uf2" $^
 
+
+
+#####################
+# Flash with debugger
+#####################
 FLASHER ?=
 
 ifeq ($(FLASHER),)
 
-flash: $(BUILD)/$(OUTPUT_FILENAME).hex
+# Also update to bootloader settting to validate application and skip checksum ( app valid = 0x0001, crc = 0x0000 )
+flash: $(BUILD)/firmware.hex
 	nrfjprog --program $< --sectorerase -f $(MCU_VARIANT)
+	nrfjprog --erasepage $(BOOT_SETTING_ADDR) -f $(MCU_VARIANT)
+	nrfjprog --memwr $(BOOT_SETTING_ADDR) --val 0x00000001 -f $(MCU_VARIANT)
 	nrfjprog --reset -f $(MCU_VARIANT)
 
-sd: $(BUILD)/$(OUTPUT_FILENAME).hex
+sd: $(BUILD)/firmware.hex
 	nrfjprog --eraseall -f $(MCU_VARIANT)
 	nrfjprog --program $(SOFTDEV_HEX) -f $(MCU_VARIANT)
 	nrfjprog --program $< --sectorerase -f $(MCU_VARIANT)
@@ -288,68 +265,55 @@ sd: $(BUILD)/$(OUTPUT_FILENAME).hex
 
 else ifeq ($(FLASHER), pyocd)
 
-flash: $(BUILD)/$(OUTPUT_FILENAME).hex
-	pyocd-flashtool -t $(MCU_VARIANT) $<
+flash: $(BUILD)/firmware.hex
+	pyocd-flashtool -t $(MCU_VARIANT) $< --sector_erase
+	#pyocd-tool -t $(MCU_VARIANT) erase $(BOOT_SETTING_ADDR)
+	pyocd-tool -t $(MCU_VARIANT) write32 $(BOOT_SETTING_ADDR) 0x00000001
+	pyocd-tool -t $(MCU_VARIANT) reset
 
-sd: $(BUILD)/$(OUTPUT_FILENAME).hex
+sd: $(BUILD)/firmware.hex
 	pyocd-flashtool -t $(MCU_VARIANT) --chip_erase
 	pyocd-flashtool -t $(MCU_VARIANT) $(SOFTDEV_HEX)
-	pyocd-flashtool -t $(MCU_VARIANT) $<
+	pyocd-flashtool -t $(MCU_VARIANT) $< --sector_erase
+	pyocd-tool -t $(MCU_VARIANT) reset $(BOOT_SETTING_ADDR)
 
 endif
 
-$(BUILD)/$(OUTPUT_FILENAME).elf: $(OBJ)
-	$(ECHO) "LINK $@"
-	$(Q)$(CC) $(LDFLAGS) -o $@ $(OBJ) $(LIBS)
-	$(Q)$(SIZE) $@
+#####################
+# Flash with DFU
+#####################
+.phony: dfu-gen dfu-flash
 
-# List of sources for qstr extraction
-SRC_QSTR += $(SRC_C) $(DRIVERS_SRC_C) $(SRC_BOARD_MODULES)
+NRFUTIL = adafruit-nrfutil
 
-# Append any auto-generated sources that are needed by sources listed in
-# SRC_QSTR
-SRC_QSTR_AUTO_DEPS +=
-
-# Making OBJ use an order-only depenedency on the generated pins.h file
-# has the side effect of making the pins.h file before we actually compile
-# any of the objects. The normal dependency generation will deal with the
-# case when pins.h is modified. But when it doesn't exist, we don't know
-# which source files might need it.
-$(OBJ): | $(HEADER_BUILD)/pins.h
-
-# Use a pattern rule here so that make will only call make-pins.py once to make
-# both pins_gen.c and pins.h
-$(BUILD)/%_gen.c $(HEADER_BUILD)/%.h $(HEADER_BUILD)/%_af_const.h $(BUILD)/%_qstr.h: boards/$(BOARD)/%.csv $(MAKE_PINS) $(AF_FILE) $(PREFIX_FILE) | $(HEADER_BUILD)
-	$(ECHO) "Create $@"
-	$(Q)$(PYTHON) $(MAKE_PINS) --board $(BOARD_PINS) --af $(AF_FILE) --prefix $(PREFIX_FILE) --hdr $(GEN_PINS_HDR) --qstr $(GEN_PINS_QSTR) --af-const $(GEN_PINS_AF_CONST) --af-py $(GEN_PINS_AF_PY) > $(GEN_PINS_SRC)
-
-$(BUILD)/pins_gen.o: $(BUILD)/pins_gen.c
-	$(call compile_c)
-
-MAKE_PINS = boards/make-pins.py
-BOARD_PINS = boards/$(BOARD)/pins.csv
-AF_FILE = $(MCU_VARIANT)_af.csv
-PREFIX_FILE = boards/$(MCU_VARIANT)_prefix.c
-GEN_PINS_SRC = $(BUILD)/pins_gen.c
-GEN_PINS_HDR = $(HEADER_BUILD)/pins.h
-GEN_PINS_QSTR = $(BUILD)/pins_qstr.h
-GEN_PINS_AF_CONST = $(HEADER_BUILD)/pins_af_const.h
-GEN_PINS_AF_PY = $(BUILD)/pins_af.py
-
-ifneq ($(FROZEN_DIR),)
-# To use frozen source modules, put your .py files in a subdirectory (eg scripts/)
-# and then invoke make with FROZEN_DIR=scripts (be sure to build from scratch).
-CFLAGS += -DMICROPY_MODULE_FROZEN_STR
+ifeq ($(MCU_SUB_VARIANT),nrf52840)
+	DFU_TOUCH = --touch 1200
+else
+	DFU_TOUCH =
 endif
 
-ifneq ($(FROZEN_MPY_DIR),)
-# To use frozen bytecode, put your .py files in a subdirectory (eg frozen/) and
-# then invoke make with FROZEN_MPY_DIR=frozen (be sure to build from scratch).
-CFLAGS += -DMICROPY_QSTR_EXTRA_POOL=mp_qstr_frozen_const_pool
-CFLAGS += -DMICROPY_MODULE_FROZEN_MPY
-endif
+check_defined = \
+    $(strip $(foreach 1,$1, \
+    $(call __check_defined,$1,$(strip $(value 2)))))
+__check_defined = \
+    $(if $(value $1),, \
+    $(error Undefined make flag: $1$(if $2, ($2))))
 
-$(PY_BUILD)/nlr%.o: CFLAGS += -Os -fno-lto
+## Flash with DFU serial
+dfu-flash: $(BUILD)/dfu-package.zip
+	@:$(call check_defined, SERIAL, example: SERIAL=/dev/ttyUSB0)
+	$(NRFUTIL) --verbose dfu serial --package $^ -p $(SERIAL) -b 115200 --singlebank $(DFU_TOUCH)
 
-include ../../py/mkrules.mk
+## Create DFU package file
+dfu-gen: $(BUILD)/dfu-package.zip
 
+$(BUILD)/dfu-package.zip: $(BUILD)/firmware.hex
+	$(NRFUTIL) dfu genpkg --sd-req 0xFFFE --dev-type 0x0052 --application $^ $(BUILD)/dfu-package.zip
+
+
+include $(TOP)/py/mkrules.mk
+
+# Print out the value of a make variable.
+# https://stackoverflow.com/questions/16467718/how-to-print-out-a-variable-in-makefile
+print-%:
+	@echo $* = $($*)

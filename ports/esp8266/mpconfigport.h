@@ -13,8 +13,8 @@
 #define MICROPY_EMIT_XTENSA         (1)
 #define MICROPY_EMIT_INLINE_XTENSA  (1)
 #define MICROPY_MEM_STATS           (0)
-#define MICROPY_DEBUG_PRINTER       (&mp_debug_print)
 #define MICROPY_DEBUG_PRINTERS      (1)
+#define MICROPY_DEBUG_PRINTER_DEST  mp_debug_print
 #define MICROPY_READER_VFS          (MICROPY_VFS)
 #define MICROPY_ENABLE_GC           (1)
 #define MICROPY_ENABLE_FINALISER    (1)
@@ -28,7 +28,7 @@
 #define MICROPY_ENABLE_SOURCE_LINE  (1)
 #define MICROPY_MODULE_WEAK_LINKS   (1)
 #define MICROPY_CAN_OVERRIDE_BUILTINS (1)
-#define MICROPY_USE_INTERNAL_ERRNO  (1)
+#define MICROPY_USE_INTERNAL_ERRNO  (0)
 #define MICROPY_ENABLE_SCHEDULER    (1)
 #define MICROPY_PY_DESCRIPTORS      (1)
 #define MICROPY_PY_ALL_SPECIAL_METHODS (1)
@@ -50,15 +50,16 @@
 #define MICROPY_PY_GC               (1)
 #define MICROPY_PY_ARRAY            (1)
 #define MICROPY_PY_ARRAY_SLICE_ASSIGN (1)
+#define MICROPY_NONSTANDARD_TYPECODES (0)
 #define MICROPY_PY_COLLECTIONS      (1)
 #define MICROPY_PY_COLLECTIONS_DEQUE (1)
 #define MICROPY_PY_COLLECTIONS_ORDEREDDICT (1)
-#define MICROPY_PY_MATH             (1)
+#define MICROPY_PY_MATH             (0)
 #define MICROPY_PY_CMATH            (0)
 #define MICROPY_PY_IO               (1)
 #define MICROPY_PY_IO_IOBASE        (1)
 #define MICROPY_PY_IO_FILEIO        (1)
-#define MICROPY_PY_STRUCT           (1)
+#define MICROPY_PY_STRUCT           (0)
 #define MICROPY_PY_SYS              (1)
 #define MICROPY_PY_SYS_MAXSIZE      (1)
 #define MICROPY_PY_SYS_EXIT         (1)
@@ -69,13 +70,11 @@
 #define MICROPY_PY_UCTYPES          (1)
 #define MICROPY_PY_UHASHLIB         (1)
 #define MICROPY_PY_UHASHLIB_SHA1    (MICROPY_PY_USSL && MICROPY_SSL_AXTLS)
-#define MICROPY_PY_UCRYPTOLIB       (1)
 #define MICROPY_PY_UHEAPQ           (1)
 #define MICROPY_PY_UTIMEQ           (1)
 #define MICROPY_PY_UJSON            (1)
-#define MICROPY_PY_URANDOM          (1)
+#define MICROPY_PY_URANDOM          (0)
 #define MICROPY_PY_URE              (1)
-#define MICROPY_PY_URE_SUB          (1)
 #define MICROPY_PY_USELECT          (1)
 #define MICROPY_PY_UTIME_MP_HAL     (1)
 #define MICROPY_PY_UZLIB            (1)
@@ -95,6 +94,7 @@
 #define MICROPY_CPYTHON_COMPAT      (1)
 #define MICROPY_LONGINT_IMPL        (MICROPY_LONGINT_IMPL_MPZ)
 #define MICROPY_FLOAT_IMPL          (MICROPY_FLOAT_IMPL_FLOAT)
+#define MICROPY_FLOAT_HIGH_QUALITY_HASH (1)
 #define MICROPY_ERROR_REPORTING     (MICROPY_ERROR_REPORTING_NORMAL)
 #define MICROPY_WARNINGS            (1)
 #define MICROPY_PY_STR_BYTES_CMP_WARN (1)
@@ -111,9 +111,9 @@
 #define MICROPY_FATFS_MAX_SS           (4096)
 #define MICROPY_FATFS_LFN_CODE_PAGE    (437) /* 1=SFN/ANSI 437=LFN/U.S.(OEM) */
 #define MICROPY_VFS_FAT                (1)
-#define MICROPY_ESP8266_APA102         (1)
 #define MICROPY_ESP8266_NEOPIXEL       (1)
 
+extern void ets_event_poll(void);
 #define MICROPY_EVENT_POLL_HOOK {ets_event_poll();}
 #define MICROPY_VM_HOOK_COUNT (10)
 #define MICROPY_VM_HOOK_INIT static uint vm_hook_divisor = MICROPY_VM_HOOK_COUNT;
@@ -145,9 +145,6 @@ typedef uint32_t sys_prot_t; // for modlwip
 void *esp_native_code_commit(void*, size_t);
 #define MP_PLAT_COMMIT_EXEC(buf, len) esp_native_code_commit(buf, len)
 
-// printer for debugging output, goes to UART only
-extern const struct _mp_print_t mp_debug_print;
-
 #define mp_type_fileio mp_type_vfs_fat_fileio
 #define mp_type_textio mp_type_vfs_fat_textio
 
@@ -163,37 +160,51 @@ extern const struct _mp_print_t mp_debug_print;
 // extra built in modules to add to the list of known ones
 extern const struct _mp_obj_module_t esp_module;
 extern const struct _mp_obj_module_t network_module;
-extern const struct _mp_obj_module_t utime_module;
-extern const struct _mp_obj_module_t uos_module;
+extern const struct _mp_obj_module_t os_module;
+extern const struct _mp_obj_module_t random_module;
+extern const struct _mp_obj_module_t struct_module;
 extern const struct _mp_obj_module_t mp_module_lwip;
 extern const struct _mp_obj_module_t mp_module_machine;
 extern const struct _mp_obj_module_t mp_module_onewire;
+extern const struct _mp_obj_module_t microcontroller_module;
+extern const struct _mp_obj_module_t board_module;
+extern const struct _mp_obj_module_t math_module;
+extern const struct _mp_obj_module_t analogio_module;
+extern const struct _mp_obj_module_t digitalio_module;
+extern const struct _mp_obj_module_t pulseio_module;
+extern const struct _mp_obj_module_t busio_module;
+extern const struct _mp_obj_module_t bitbangio_module;
+extern const struct _mp_obj_module_t time_module;
+extern const struct _mp_obj_module_t multiterminal_module;
+extern const struct _mp_obj_module_t neopixel_write_module;
 
 #define MICROPY_PORT_BUILTIN_MODULES \
-    { MP_ROM_QSTR(MP_QSTR_esp), MP_ROM_PTR(&esp_module) }, \
-    { MP_ROM_QSTR(MP_QSTR_usocket), MP_ROM_PTR(&mp_module_lwip) }, \
-    { MP_ROM_QSTR(MP_QSTR_network), MP_ROM_PTR(&network_module) }, \
-    { MP_ROM_QSTR(MP_QSTR_utime), MP_ROM_PTR(&utime_module) }, \
-    { MP_ROM_QSTR(MP_QSTR_uos), MP_ROM_PTR(&uos_module) }, \
-    { MP_ROM_QSTR(MP_QSTR_machine), MP_ROM_PTR(&mp_module_machine) }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_esp), (mp_obj_t)&esp_module }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_socket), (mp_obj_t)&mp_module_lwip }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_usocket), (mp_obj_t)&mp_module_lwip }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_network), (mp_obj_t)&network_module }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_os), (mp_obj_t)&os_module }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_machine), (mp_obj_t)&mp_module_machine }, \
     { MP_ROM_QSTR(MP_QSTR__onewire), MP_ROM_PTR(&mp_module_onewire) }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_microcontroller), (mp_obj_t)&microcontroller_module }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_board), (mp_obj_t)&board_module }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_analogio), (mp_obj_t)&analogio_module }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_digitalio), (mp_obj_t)&digitalio_module }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_pulseio), (mp_obj_t)&pulseio_module }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_busio), (mp_obj_t)&busio_module }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_bitbangio), (mp_obj_t)&bitbangio_module }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_random), (mp_obj_t)&random_module }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_struct), (mp_obj_t)&struct_module }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_math), (mp_obj_t)&math_module }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_time), (mp_obj_t)&time_module }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_multiterminal), (mp_obj_t)&multiterminal_module }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_neopixel_write),(mp_obj_t)&neopixel_write_module }, \
 
 #define MICROPY_PORT_BUILTIN_MODULE_WEAK_LINKS \
-    { MP_ROM_QSTR(MP_QSTR_binascii), MP_ROM_PTR(&mp_module_ubinascii) }, \
-    { MP_ROM_QSTR(MP_QSTR_collections), MP_ROM_PTR(&mp_module_collections) }, \
-    { MP_ROM_QSTR(MP_QSTR_errno), MP_ROM_PTR(&mp_module_uerrno) }, \
-    { MP_ROM_QSTR(MP_QSTR_hashlib), MP_ROM_PTR(&mp_module_uhashlib) }, \
-    { MP_ROM_QSTR(MP_QSTR_io), MP_ROM_PTR(&mp_module_io) }, \
     { MP_ROM_QSTR(MP_QSTR_json), MP_ROM_PTR(&mp_module_ujson) }, \
-    { MP_ROM_QSTR(MP_QSTR_os), MP_ROM_PTR(&uos_module) }, \
-    { MP_ROM_QSTR(MP_QSTR_random), MP_ROM_PTR(&mp_module_urandom) }, \
-    { MP_ROM_QSTR(MP_QSTR_re), MP_ROM_PTR(&mp_module_ure) }, \
+    { MP_ROM_QSTR(MP_QSTR_errno), MP_ROM_PTR(&mp_module_uerrno) }, \
     { MP_ROM_QSTR(MP_QSTR_select), MP_ROM_PTR(&mp_module_uselect) }, \
     { MP_ROM_QSTR(MP_QSTR_socket), MP_ROM_PTR(&mp_module_lwip) }, \
-    { MP_ROM_QSTR(MP_QSTR_ssl), MP_ROM_PTR(&mp_module_ussl) }, \
-    { MP_ROM_QSTR(MP_QSTR_struct), MP_ROM_PTR(&mp_module_ustruct) }, \
-    { MP_ROM_QSTR(MP_QSTR_time), MP_ROM_PTR(&utime_module) }, \
-    { MP_ROM_QSTR(MP_QSTR_zlib), MP_ROM_PTR(&mp_module_uzlib) }, \
 
 #define MP_STATE_PORT MP_STATE_VM
 

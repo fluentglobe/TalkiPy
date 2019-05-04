@@ -51,18 +51,16 @@
 #undef MICROPY_HW_CLK_PLLN
 #undef MICROPY_HW_CLK_PLLP
 #undef MICROPY_HW_CLK_PLLQ
-#undef MICROPY_HW_FLASH_LATENCY
 #define MICROPY_HW_CLK_PLLM (HSE_VALUE / 1000000)
 #define MICROPY_HW_CLK_PLLN (192)
 #define MICROPY_HW_CLK_PLLP (RCC_PLLP_DIV4)
 #define MICROPY_HW_CLK_PLLQ (4)
-#define MICROPY_HW_FLASH_LATENCY FLASH_LATENCY_1
 
 // Work out which USB device to use for the USB DFU interface
 #if !defined(MICROPY_HW_USB_MAIN_DEV)
-#if MICROPY_HW_USB_FS
+#if defined(MICROPY_HW_USB_FS)
 #define MICROPY_HW_USB_MAIN_DEV (USB_PHY_FS_ID)
-#elif MICROPY_HW_USB_HS && MICROPY_HW_USB_HS_IN_FS
+#elif defined(MICROPY_HW_USB_HS) && defined(MICROPY_HW_USB_HS_IN_FS)
 #define MICROPY_HW_USB_MAIN_DEV (USB_PHY_HS_ID)
 #else
 #error Unable to determine proper MICROPY_HW_USB_MAIN_DEV to use
@@ -207,6 +205,10 @@ void SystemClock_Config(void) {
     __HAL_RCC_PLL_ENABLE();
     while(__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) == RESET) {
     }
+
+    #if !defined(MICROPY_HW_FLASH_LATENCY)
+    #define MICROPY_HW_FLASH_LATENCY FLASH_LATENCY_1
+    #endif
 
     // Increase latency before changing clock
     if (MICROPY_HW_FLASH_LATENCY > (FLASH->ACR & FLASH_ACR_LATENCY)) {
@@ -354,7 +356,7 @@ static const flash_layout_t flash_layout[] = {
     #endif
 };
 
-#elif defined(STM32F765xx) || defined(STM32F767xx)
+#elif defined(STM32F767xx)
 
 #define FLASH_LAYOUT_STR "@Internal Flash  /0x08000000/04*032Kg,01*128Kg,07*256Kg" MBOOT_SPIFLASH_LAYOUT MBOOT_SPIFLASH2_LAYOUT
 
@@ -760,8 +762,7 @@ static int dfu_process_dnload(void) {
         }
     } else if (dfu_state.wBlockNum > 1) {
         // write data to memory
-        uint32_t addr = (dfu_state.wBlockNum - 2) * DFU_XFER_SIZE + dfu_state.addr;
-        ret = do_write(addr, dfu_state.buf, dfu_state.wLength);
+        ret = do_write(dfu_state.addr, dfu_state.buf, dfu_state.wLength);
     }
     if (ret == 0) {
         return DFU_STATUS_DNLOAD_IDLE;
@@ -845,8 +846,10 @@ static int dfu_handle_tx(int cmd, int arg, int len, uint8_t *buf, int max_len) {
 
 #define USB_XFER_SIZE (DFU_XFER_SIZE)
 
-#define USB_PHY_FS_ID (0)
-#define USB_PHY_HS_ID (1)
+enum {
+    USB_PHY_FS_ID = 0,
+    USB_PHY_HS_ID = 1,
+};
 
 typedef struct _pyb_usbdd_obj_t {
     bool started;
@@ -1245,12 +1248,13 @@ enter_bootloader:
     #endif
     for (;;) {
         #if USE_USB_POLLING
-        #if MICROPY_HW_USB_MAIN_DEV == USB_PHY_FS_ID
-        if (USB_OTG_FS->GINTSTS & USB_OTG_FS->GINTMSK) {
+        #if defined(MICROPY_HW_USB_FS)
+        if (pcd_fs_handle.Instance->GINTSTS & pcd_fs_handle.Instance->GINTMSK) {
             HAL_PCD_IRQHandler(&pcd_fs_handle);
         }
-        #else
-        if (USB_OTG_HS->GINTSTS & USB_OTG_HS->GINTMSK) {
+        #endif
+        #if defined(MICROPY_HW_USB_HS)
+        if (pcd_hs_handle.Instance->GINTSTS & pcd_hs_handle.Instance->GINTMSK) {
             HAL_PCD_IRQHandler(&pcd_hs_handle);
         }
         #endif
@@ -1324,11 +1328,12 @@ void I2Cx_EV_IRQHandler(void) {
 #endif
 
 #if !USE_USB_POLLING
-#if MICROPY_HW_USB_MAIN_DEV == USB_PHY_FS_ID
+#if defined(MICROPY_HW_USB_FS)
 void OTG_FS_IRQHandler(void) {
     HAL_PCD_IRQHandler(&pcd_fs_handle);
 }
-#else
+#endif
+#if defined(MICROPY_HW_USB_HS)
 void OTG_HS_IRQHandler(void) {
     HAL_PCD_IRQHandler(&pcd_hs_handle);
 }

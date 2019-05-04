@@ -104,6 +104,7 @@ STM_SRC_S = $(addprefix ports/stm32/,\
 
 LIB_SRC_C = $(addprefix lib/,\
 	libc/string0.c \
+	mp-readline/builtin_input.c \
 	mp-readline/readline.c \
 	utils/pyexec.c \
 	utils/sys_stdio_mphal.c \

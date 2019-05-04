@@ -27,8 +27,9 @@
 #include "py/runtime.h"
 #include "py/stream.h"
 #include "extmod/vfs_posix.h"
+#include "supervisor/shared/translate.h"
 
-#if MICROPY_VFS_POSIX
+#if defined(MICROPY_VFS_POSIX) && MICROPY_VFS_POSIX
 
 #include <fcntl.h>
 
@@ -44,7 +45,7 @@ typedef struct _mp_obj_vfs_posix_file_t {
 #ifdef MICROPY_CPYTHON_COMPAT
 STATIC void check_fd_is_open(const mp_obj_vfs_posix_file_t *o) {
     if (o->fd < 0) {
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "I/O operation on closed file"));
+        nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, translate("I/O operation on closed file")));
     }
 }
 #else
@@ -108,14 +109,14 @@ mp_obj_t mp_vfs_posix_file_open(const mp_obj_type_t *type, mp_obj_t file_in, mp_
     return MP_OBJ_FROM_PTR(o);
 }
 
-STATIC mp_obj_t vfs_posix_file_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
+STATIC mp_obj_t vfs_posix_file_make_new(const mp_obj_type_t *type, size_t n_args, const mp_obj_t *args, mp_map_t *kw_args) {
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_file, MP_ARG_OBJ | MP_ARG_REQUIRED, {.u_rom_obj = MP_ROM_PTR(&mp_const_none_obj)} },
         { MP_QSTR_mode, MP_ARG_OBJ, {.u_rom_obj = MP_ROM_QSTR(MP_QSTR_r)} },
     };
 
     mp_arg_val_t arg_vals[MP_ARRAY_SIZE(allowed_args)];
-    mp_arg_parse_all_kw_array(n_args, n_kw, args, MP_ARRAY_SIZE(allowed_args), allowed_args, arg_vals);
+    mp_arg_parse_all(n_args, args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, arg_vals);
     return mp_vfs_posix_file_open(type, arg_vals[0].u_obj, arg_vals[1].u_obj);
 }
 

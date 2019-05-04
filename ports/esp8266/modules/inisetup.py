@@ -1,11 +1,15 @@
-import uos
-import network
 from flashbdev import bdev
+import network
+import storage
 
 def wifi():
-    import ubinascii
+    try:
+        import ubinascii as binascii
+    except ImportError:
+        import binascii
+
     ap_if = network.WLAN(network.AP_IF)
-    essid = b"MicroPython-%s" % ubinascii.hexlify(ap_if.config("mac")[-3:])
+    essid = b"MicroPython-%s" % binascii.hexlify(ap_if.config("mac")[-3:])
     ap_if.config(essid=essid, authmode=network.AUTH_WPA_WPA2_PSK, password=b"micropythoN")
 
 def check_bootsec():
@@ -36,16 +40,14 @@ def setup():
     check_bootsec()
     print("Performing initial setup")
     wifi()
-    uos.VfsFat.mkfs(bdev)
-    vfs = uos.VfsFat(bdev)
-    uos.mount(vfs, '/')
+    storage.VfsFat.mkfs(bdev)
+    vfs = storage.VfsFat(bdev)
+    storage.mount(vfs, '/')
     with open("boot.py", "w") as f:
         f.write("""\
 # This file is executed on every boot (including wake-boot from deepsleep)
 #import esp
 #esp.osdebug(None)
-import uos, machine
-uos.dupterm(machine.UART(0, 115200), 1)
 import gc
 #import webrepl
 #webrepl.start()

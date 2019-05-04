@@ -28,6 +28,8 @@
 #include <string.h>
 #include <stdarg.h>
 
+//#include "py/ioctl.h"
+//#include "py/nlr.h"
 #include "py/runtime.h"
 #include "py/stream.h"
 #include "py/mperrno.h"
@@ -123,7 +125,7 @@ void uart_deinit(void) {
     for (int i = 0; i < MP_ARRAY_SIZE(MP_STATE_PORT(pyb_uart_obj_all)); i++) {
         pyb_uart_obj_t *uart_obj = MP_STATE_PORT(pyb_uart_obj_all)[i];
         if (uart_obj != NULL) {
-            pyb_uart_deinit(MP_OBJ_FROM_PTR(uart_obj));
+            pyb_uart_deinit(uart_obj);
         }
     }
 }
@@ -215,11 +217,7 @@ STATIC bool uart_init2(pyb_uart_obj_t *uart_obj) {
         case PYB_UART_3:
             uart_unit = 3;
             UARTx = USART3;
-            #if defined(STM32F0)
-            irqn = USART3_8_IRQn;
-            #else
             irqn = USART3_IRQn;
-            #endif
             pins[0] = MICROPY_HW_UART3_TX;
             pins[1] = MICROPY_HW_UART3_RX;
             #if defined(MICROPY_HW_UART3_RTS)
@@ -239,34 +237,22 @@ STATIC bool uart_init2(pyb_uart_obj_t *uart_obj) {
         #if defined(MICROPY_HW_UART4_TX) && defined(MICROPY_HW_UART4_RX)
         case PYB_UART_4:
             uart_unit = 4;
-            #if defined(STM32F0)
-            UARTx = USART4;
-            irqn = USART3_8_IRQn;
-            __HAL_RCC_USART4_CLK_ENABLE();
-            #else
             UARTx = UART4;
             irqn = UART4_IRQn;
-            __HAL_RCC_UART4_CLK_ENABLE();
-            #endif
             pins[0] = MICROPY_HW_UART4_TX;
             pins[1] = MICROPY_HW_UART4_RX;
+            __HAL_RCC_UART4_CLK_ENABLE();
             break;
         #endif
 
         #if defined(MICROPY_HW_UART5_TX) && defined(MICROPY_HW_UART5_RX)
         case PYB_UART_5:
             uart_unit = 5;
-            #if defined(STM32F0)
-            UARTx = USART5;
-            irqn = USART3_8_IRQn;
-            __HAL_RCC_USART5_CLK_ENABLE();
-            #else
             UARTx = UART5;
             irqn = UART5_IRQn;
-            __HAL_RCC_UART5_CLK_ENABLE();
-            #endif
             pins[0] = MICROPY_HW_UART5_TX;
             pins[1] = MICROPY_HW_UART5_RX;
+            __HAL_RCC_UART5_CLK_ENABLE();
             break;
         #endif
 
@@ -274,11 +260,7 @@ STATIC bool uart_init2(pyb_uart_obj_t *uart_obj) {
         case PYB_UART_6:
             uart_unit = 6;
             UARTx = USART6;
-            #if defined(STM32F0)
-            irqn = USART3_8_IRQn;
-            #else
             irqn = USART6_IRQn;
-            #endif
             pins[0] = MICROPY_HW_UART6_TX;
             pins[1] = MICROPY_HW_UART6_RX;
             #if defined(MICROPY_HW_UART6_RTS)
@@ -298,17 +280,11 @@ STATIC bool uart_init2(pyb_uart_obj_t *uart_obj) {
         #if defined(MICROPY_HW_UART7_TX) && defined(MICROPY_HW_UART7_RX)
         case PYB_UART_7:
             uart_unit = 7;
-            #if defined(STM32F0)
-            UARTx = USART7;
-            irqn = USART3_8_IRQn;
-            __HAL_RCC_USART7_CLK_ENABLE();
-            #else
             UARTx = UART7;
             irqn = UART7_IRQn;
-            __HAL_RCC_UART7_CLK_ENABLE();
-            #endif
             pins[0] = MICROPY_HW_UART7_TX;
             pins[1] = MICROPY_HW_UART7_RX;
+            __HAL_RCC_UART7_CLK_ENABLE();
             break;
         #endif
 
@@ -568,7 +544,7 @@ void uart_irq_handler(mp_uint_t uart_id) {
 /* MicroPython bindings                                                       */
 
 STATIC void pyb_uart_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
-    pyb_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    pyb_uart_obj_t *self = self_in;
     if (!self->is_enabled) {
         mp_printf(print, "UART(%u)", self->uart_id);
     } else {
@@ -622,7 +598,7 @@ STATIC mp_obj_t pyb_uart_init_helper(pyb_uart_obj_t *self, size_t n_args, const 
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_baudrate, MP_ARG_REQUIRED | MP_ARG_INT, {.u_int = 9600} },
         { MP_QSTR_bits, MP_ARG_INT, {.u_int = 8} },
-        { MP_QSTR_parity, MP_ARG_OBJ, {.u_rom_obj = MP_ROM_PTR(&mp_const_none_obj)} },
+        { MP_QSTR_parity, MP_ARG_OBJ, {.u_obj = mp_const_none} },
         { MP_QSTR_stop, MP_ARG_INT, {.u_int = 1} },
         { MP_QSTR_flow, MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = UART_HWCONTROL_NONE} },
         { MP_QSTR_timeout, MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = 1000} },
@@ -832,14 +808,6 @@ STATIC mp_obj_t pyb_uart_make_new(const mp_obj_type_t *type, size_t n_args, size
         } else if (strcmp(port, MICROPY_HW_UART6_NAME) == 0) {
             uart_id = PYB_UART_6;
         #endif
-        #ifdef MICROPY_HW_UART7_NAME
-        } else if (strcmp(port, MICROPY_HW_UART7_NAME) == 0) {
-            uart_id = PYB_UART_7;
-        #endif
-        #ifdef MICROPY_HW_UART8_NAME
-        } else if (strcmp(port, MICROPY_HW_UART8_NAME) == 0) {
-            uart_id = PYB_UART_8;
-        #endif
         } else {
             nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_ValueError, "UART(%s) doesn't exist", port));
         }
@@ -869,18 +837,18 @@ STATIC mp_obj_t pyb_uart_make_new(const mp_obj_type_t *type, size_t n_args, size
         pyb_uart_init_helper(self, n_args - 1, args + 1, &kw_args);
     }
 
-    return MP_OBJ_FROM_PTR(self);
+    return self;
 }
 
 STATIC mp_obj_t pyb_uart_init(size_t n_args, const mp_obj_t *args, mp_map_t *kw_args) {
-    return pyb_uart_init_helper(MP_OBJ_TO_PTR(args[0]), n_args - 1, args + 1, kw_args);
+    return pyb_uart_init_helper(args[0], n_args - 1, args + 1, kw_args);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(pyb_uart_init_obj, 1, pyb_uart_init);
 
 /// \method deinit()
 /// Turn off the UART bus.
 STATIC mp_obj_t pyb_uart_deinit(mp_obj_t self_in) {
-    pyb_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    pyb_uart_obj_t *self = self_in;
     self->is_enabled = false;
     UART_HandleTypeDef *uart = &self->uart;
     HAL_UART_DeInit(uart);
@@ -910,24 +878,12 @@ STATIC mp_obj_t pyb_uart_deinit(mp_obj_t self_in) {
         __HAL_RCC_UART4_RELEASE_RESET();
         __HAL_RCC_UART4_CLK_DISABLE();
     #endif
-    #if defined(USART4)
-    } else if (uart->Instance == USART4) {
-        __HAL_RCC_USART4_FORCE_RESET();
-        __HAL_RCC_USART4_RELEASE_RESET();
-        __HAL_RCC_USART4_CLK_DISABLE();
-    #endif
     #if defined(UART5)
     } else if (uart->Instance == UART5) {
         HAL_NVIC_DisableIRQ(UART5_IRQn);
         __HAL_RCC_UART5_FORCE_RESET();
         __HAL_RCC_UART5_RELEASE_RESET();
         __HAL_RCC_UART5_CLK_DISABLE();
-    #endif
-    #if defined(USART5)
-    } else if (uart->Instance == USART5) {
-        __HAL_RCC_USART5_FORCE_RESET();
-        __HAL_RCC_USART5_RELEASE_RESET();
-        __HAL_RCC_USART5_CLK_DISABLE();
     #endif
     #if defined(UART6)
     } else if (uart->Instance == USART6) {
@@ -943,24 +899,12 @@ STATIC mp_obj_t pyb_uart_deinit(mp_obj_t self_in) {
         __HAL_RCC_UART7_RELEASE_RESET();
         __HAL_RCC_UART7_CLK_DISABLE();
     #endif
-    #if defined(USART7)
-    } else if (uart->Instance == USART7) {
-        __HAL_RCC_USART7_FORCE_RESET();
-        __HAL_RCC_USART7_RELEASE_RESET();
-        __HAL_RCC_USART7_CLK_DISABLE();
-    #endif
     #if defined(UART8)
     } else if (uart->Instance == UART8) {
         HAL_NVIC_DisableIRQ(UART8_IRQn);
         __HAL_RCC_UART8_FORCE_RESET();
         __HAL_RCC_UART8_RELEASE_RESET();
         __HAL_RCC_UART8_CLK_DISABLE();
-    #endif
-    #if defined(USART8)
-    } else if (uart->Instance == USART8) {
-        __HAL_RCC_USART8_FORCE_RESET();
-        __HAL_RCC_USART8_RELEASE_RESET();
-        __HAL_RCC_USART8_CLK_DISABLE();
     #endif
     }
     return mp_const_none;
@@ -970,7 +914,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(pyb_uart_deinit_obj, pyb_uart_deinit);
 /// \method any()
 /// Return `True` if any characters waiting, else `False`.
 STATIC mp_obj_t pyb_uart_any(mp_obj_t self_in) {
-    pyb_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    pyb_uart_obj_t *self = self_in;
     return MP_OBJ_NEW_SMALL_INT(uart_rx_any(self));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(pyb_uart_any_obj, pyb_uart_any);
@@ -979,7 +923,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(pyb_uart_any_obj, pyb_uart_any);
 /// Write a single character on the bus.  `char` is an integer to write.
 /// Return value: `None`.
 STATIC mp_obj_t pyb_uart_writechar(mp_obj_t self_in, mp_obj_t char_in) {
-    pyb_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    pyb_uart_obj_t *self = self_in;
 
     // get the character to write (might be 9 bits)
     uint16_t data = mp_obj_get_int(char_in);
@@ -1004,7 +948,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(pyb_uart_writechar_obj, pyb_uart_writechar);
 /// Receive a single character on the bus.
 /// Return value: The character read, as an integer.  Returns -1 on timeout.
 STATIC mp_obj_t pyb_uart_readchar(mp_obj_t self_in) {
-    pyb_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    pyb_uart_obj_t *self = self_in;
     if (uart_rx_wait(self, self->timeout)) {
         return MP_OBJ_NEW_SMALL_INT(uart_rx_char(self));
     } else {
@@ -1016,7 +960,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(pyb_uart_readchar_obj, pyb_uart_readchar);
 
 // uart.sendbreak()
 STATIC mp_obj_t pyb_uart_sendbreak(mp_obj_t self_in) {
-    pyb_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    pyb_uart_obj_t *self = self_in;
     #if defined(STM32F0) || defined(STM32F7) || defined(STM32L4) || defined(STM32H7)
     self->uart.Instance->RQR = USART_RQR_SBKRQ; // write-only register
     #else
@@ -1054,7 +998,7 @@ STATIC const mp_rom_map_elem_t pyb_uart_locals_dict_table[] = {
 STATIC MP_DEFINE_CONST_DICT(pyb_uart_locals_dict, pyb_uart_locals_dict_table);
 
 STATIC mp_uint_t pyb_uart_read(mp_obj_t self_in, void *buf_in, mp_uint_t size, int *errcode) {
-    pyb_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    pyb_uart_obj_t *self = self_in;
     byte *buf = buf_in;
 
     // check that size is a multiple of character width
@@ -1096,7 +1040,7 @@ STATIC mp_uint_t pyb_uart_read(mp_obj_t self_in, void *buf_in, mp_uint_t size, i
 }
 
 STATIC mp_uint_t pyb_uart_write(mp_obj_t self_in, const void *buf_in, mp_uint_t size, int *errcode) {
-    pyb_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    pyb_uart_obj_t *self = self_in;
     const byte *buf = buf_in;
 
     // check that size is a multiple of character width
@@ -1122,11 +1066,11 @@ STATIC mp_uint_t pyb_uart_write(mp_obj_t self_in, const void *buf_in, mp_uint_t 
     }
 }
 
-STATIC mp_uint_t pyb_uart_ioctl(mp_obj_t self_in, mp_uint_t request, uintptr_t arg, int *errcode) {
-    pyb_uart_obj_t *self = MP_OBJ_TO_PTR(self_in);
+STATIC mp_uint_t pyb_uart_ioctl(mp_obj_t self_in, mp_uint_t request, mp_uint_t arg, int *errcode) {
+    pyb_uart_obj_t *self = self_in;
     mp_uint_t ret;
     if (request == MP_STREAM_POLL) {
-        uintptr_t flags = arg;
+        mp_uint_t flags = arg;
         ret = 0;
         if ((flags & MP_STREAM_POLL_RD) && uart_rx_any(self)) {
             ret |= MP_STREAM_POLL_RD;

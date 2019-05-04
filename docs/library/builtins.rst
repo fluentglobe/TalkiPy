@@ -7,6 +7,8 @@ available via ``builtins`` module.
 Functions and types
 -------------------
 
+Not all of these functions and types are turned on in all CircuitPython ports, for space reasons.
+
 .. function:: abs()
 
 .. function:: all()
@@ -21,7 +23,7 @@ Functions and types
 
 .. class:: bytes()
 
-    |see_cpython| `python:bytes`.
+    |see_cpython| `bytes`.
 
 .. function:: callable()
 
@@ -56,6 +58,8 @@ Functions and types
 
 .. class:: frozenset()
 
+`frozenset()` is not enabled on non-Express CircuitPython boards.
+
 .. function:: getattr()
 
 .. function:: globals()
@@ -74,12 +78,12 @@ Functions and types
 
    .. classmethod:: from_bytes(bytes, byteorder)
 
-      In MicroPython, `byteorder` parameter must be positional (this is
+      In CircuitPython, ``byteorder`` parameter must be positional (this is
       compatible with CPython).
 
    .. method:: to_bytes(size, byteorder)
 
-      In MicroPython, `byteorder` parameter must be positional (this is
+      In CircuitPython, ``byteorder`` parameter must be positional (this is
       compatible with CPython).
 
 .. function:: isinstance()
@@ -123,6 +127,8 @@ Functions and types
 .. function:: repr()
 
 .. function:: reversed()
+
+`reversed()` is not enabled on non-Express CircuitPython boards.
 
 .. function:: round()
 
@@ -176,11 +182,15 @@ Exceptions
 
 .. exception:: OSError
 
-    |see_cpython| `python:OSError`. MicroPython doesn't implement ``errno``
+    |see_cpython| `OSError`. CircuitPython doesn't implement the ``errno``
     attribute, instead use the standard way to access exception arguments:
     ``exc.args[0]``.
 
 .. exception:: RuntimeError
+
+.. exception:: ReloadException
+
+   `ReloadException` is used internally to deal with soft restarts.
 
 .. exception:: StopIteration
 
@@ -188,11 +198,11 @@ Exceptions
 
 .. exception:: SystemExit
 
-    |see_cpython| `python:SystemExit`.
+    |see_cpython| :py:class:`python:SystemExit`.
 
 .. exception:: TypeError
 
-    |see_cpython| `python:TypeError`.
+    |see_cpython| :py:class:`python:TypeError`.
 
 .. exception:: ValueError
 

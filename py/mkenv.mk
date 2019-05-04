@@ -24,12 +24,17 @@ BUILD_VERBOSE = 0
 endif
 ifeq ($(BUILD_VERBOSE),0)
 Q = @
+STEPECHO = @:
+else ifeq ($(BUILD_VERBOSE),1)
+Q = @
+STEPECHO = @echo
 else
 Q =
+STEPECHO = @echo
 endif
 # Since this is a new feature, advertise it
 ifeq ($(BUILD_VERBOSE),0)
-$(info Use make V=1 or set BUILD_VERBOSE in your environment to increase build verbosity.)
+$(info Use make V=1, make V=2 or set BUILD_VERBOSE similarly in your environment to increase build verbosity.)
 endif
 
 # default settings; can be overridden in main Makefile
@@ -37,12 +42,19 @@ endif
 PY_SRC ?= $(TOP)/py
 BUILD ?= build
 
-RM = rm
 ECHO = @echo
+
+CD = cd
 CP = cp
+FIND = find
 MKDIR = mkdir
-SED = sed
 PYTHON = python
+# Set default python interpreters
+PYTHON2 ?= $(which python2 || which python2.7)
+PYTHON3 ?= python3
+RM = rm
+RSYNC = rsync
+SED = sed
 
 AS = $(CROSS_COMPILE)as
 CC = $(CROSS_COMPILE)gcc
@@ -60,7 +72,8 @@ endif
 
 MAKE_FROZEN = $(PYTHON) $(TOP)/tools/make-frozen.py
 MPY_CROSS = $(TOP)/mpy-cross/mpy-cross
-MPY_TOOL = $(PYTHON) $(TOP)/tools/mpy-tool.py
+MPY_TOOL = $(PYTHON3) $(TOP)/tools/mpy-tool.py
+PREPROCESS_FROZEN_MODULES = PYTHONPATH=$(TOP)/tools/python-semver $(TOP)/tools/preprocess_frozen_modules.py
 
 all:
 .PHONY: all

@@ -40,9 +40,14 @@
 // to another, you must rebuild from scratch using "-B" switch to make.
 
 #ifdef MP_CONFIGFILE
-#include MP_CONFIGFILE
+#include "mpconfigport_coverage.h"
 #else
 #include <mpconfigport.h>
+#endif
+
+// Is this a CircuitPython build?
+#ifndef CIRCUITPY
+#define CIRCUITPY 0
 #endif
 
 // Any options not explicitly set in mpconfigport.h will get default
@@ -128,6 +133,12 @@
 // space at the end when no more strings need interning.
 #ifndef MICROPY_ALLOC_QSTR_CHUNK_INIT
 #define MICROPY_ALLOC_QSTR_CHUNK_INIT (128)
+#endif
+
+// Max number of entries in newly allocated QSTR pools. Smaller numbers may make QSTR lookups
+// slightly slower but reduce the waste of unused spots.
+#ifndef MICROPY_QSTR_POOL_MAX_ENTRIES
+#define MICROPY_QSTR_POOL_MAX_ENTRIES (64)
 #endif
 
 // Initial amount for lexer indentation level
@@ -366,11 +377,6 @@
 #define MICROPY_MEM_STATS (0)
 #endif
 
-// The mp_print_t printer used for debugging output
-#ifndef MICROPY_DEBUG_PRINTER
-#define MICROPY_DEBUG_PRINTER (&mp_plat_print)
-#endif
-
 // Whether to build functions that print debugging info:
 //   mp_bytecode_print
 //   mp_parse_node_print
@@ -407,12 +413,6 @@
 #define MICROPY_OPT_MPZ_BITWISE (0)
 #endif
 
-
-// Whether math.factorial is large, fast and recursive (1) or small and slow (0).
-#ifndef MICROPY_OPT_MATH_FACTORIAL
-#define MICROPY_OPT_MATH_FACTORIAL (0)
-#endif
-
 /*****************************************************************************/
 /* Python internal features                                                  */
 
@@ -431,6 +431,11 @@
 // Whether to use the VFS reader for importing files
 #ifndef MICROPY_READER_VFS
 #define MICROPY_READER_VFS (0)
+#endif
+
+// Number of VFS mounts to persist across soft-reset.
+#ifndef MICROPY_FATFS_NUM_PERSISTENT
+#define MICROPY_FATFS_NUM_PERSISTENT (0)
 #endif
 
 // Hook for the VM at the start of the opcode loop (can contain variable
@@ -474,6 +479,11 @@
 // etc. Not checking means segfault on overflow.
 #ifndef MICROPY_STACK_CHECK
 #define MICROPY_STACK_CHECK (0)
+#endif
+
+// Whether to measure maximum stack excursion
+#ifndef MICROPY_MAX_STACK_USAGE
+#define MICROPY_MAX_STACK_USAGE (0)
 #endif
 
 // Whether to have an emergency exception buffer
@@ -633,11 +643,6 @@ typedef double mp_float_t;
 #define MICROPY_MODULE_BUILTIN_INIT (0)
 #endif
 
-// Whether to support module-level __getattr__ (see PEP 562)
-#ifndef MICROPY_MODULE_GETATTR
-#define MICROPY_MODULE_GETATTR (0)
-#endif
-
 // Whether module weak links are supported
 #ifndef MICROPY_MODULE_WEAK_LINKS
 #define MICROPY_MODULE_WEAK_LINKS (0)
@@ -768,16 +773,6 @@ typedef double mp_float_t;
 // Whether str.center() method provided
 #ifndef MICROPY_PY_BUILTINS_STR_CENTER
 #define MICROPY_PY_BUILTINS_STR_CENTER (0)
-#endif
-
-// Whether str.count() method provided
-#ifndef MICROPY_PY_BUILTINS_STR_COUNT
-#define MICROPY_PY_BUILTINS_STR_COUNT (1)
-#endif
-
-// Whether str % (...) formatting operator provided
-#ifndef MICROPY_PY_BUILTINS_STR_OP_MODULO
-#define MICROPY_PY_BUILTINS_STR_OP_MODULO (1)
 #endif
 
 // Whether str.partition()/str.rpartition() method provided
@@ -968,6 +963,12 @@ typedef double mp_float_t;
 #define MICROPY_PY_ARRAY_SLICE_ASSIGN (0)
 #endif
 
+// Whether to support nonstandard typecodes "O", "P" and "S"
+// in array and struct modules.
+#ifndef MICROPY_NONSTANDARD_TYPECODES
+#define MICROPY_NONSTANDARD_TYPECODES (1)
+#endif
+
 // Whether to support attrtuple type (MicroPython extension)
 // It provides space-efficient tuples with attribute access
 #ifndef MICROPY_PY_ATTRTUPLE
@@ -1002,11 +1003,6 @@ typedef double mp_float_t;
 // Whether to provide special math functions: math.{erf,erfc,gamma,lgamma}
 #ifndef MICROPY_PY_MATH_SPECIAL_FUNCTIONS
 #define MICROPY_PY_MATH_SPECIAL_FUNCTIONS (0)
-#endif
-
-// Whether to provide math.factorial function
-#ifndef MICROPY_PY_MATH_FACTORIAL
-#define MICROPY_PY_MATH_FACTORIAL (0)
 #endif
 
 // Whether to provide "cmath" module
@@ -1198,24 +1194,12 @@ typedef double mp_float_t;
 #define MICROPY_PY_UHASHLIB (0)
 #endif
 
-#ifndef MICROPY_PY_UHASHLIB_MD5
-#define MICROPY_PY_UHASHLIB_MD5 (0)
-#endif
-
 #ifndef MICROPY_PY_UHASHLIB_SHA1
 #define MICROPY_PY_UHASHLIB_SHA1  (0)
 #endif
 
 #ifndef MICROPY_PY_UHASHLIB_SHA256
 #define MICROPY_PY_UHASHLIB_SHA256 (1)
-#endif
-
-#ifndef MICROPY_PY_UCRYPTOLIB
-#define MICROPY_PY_UCRYPTOLIB (0)
-#endif
-
-#ifndef MICROPY_PY_UCRYPTOLIB_CONSTS
-#define MICROPY_PY_UCRYPTOLIB_CONSTS (0)
 #endif
 
 #ifndef MICROPY_PY_UBINASCII
@@ -1269,6 +1253,26 @@ typedef double mp_float_t;
 
 #ifndef MICROPY_PY_BTREE
 #define MICROPY_PY_BTREE (0)
+#endif
+
+#ifndef MICROPY_PY_OS_DUPTERM
+#define MICROPY_PY_OS_DUPTERM (0)
+#endif
+
+#ifndef MICROPY_PY_LWIP
+#define MICROPY_PY_LWIP (0)
+#endif
+
+#ifndef MICROPY_PY_LWIP_SLIP
+#define MICROPY_PY_LWIP_SLIP (0)
+#endif
+
+#ifndef MICROPY_HW_ENABLE_USB
+#define MICROPY_HW_ENABLE_USB (0)
+#endif
+
+#ifndef MICROPY_PY_WEBREPL
+#define MICROPY_PY_WEBREPL (0)
 #endif
 
 /*****************************************************************************/

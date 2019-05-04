@@ -1,125 +1,103 @@
-/*
- * This file is part of the MicroPython project, http://micropython.org/
- *
- * The MIT License (MIT)
- *
- * Copyright (c) 2018 Glenn Ruben Bakke
- * Copyright (c) 2018 Ayke van Laethem
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
+#ifndef NRFX_CONFIG_H__
+#define NRFX_CONFIG_H__
 
-#ifndef NRFX_CONFIG_H
-#define NRFX_CONFIG_H
+// Power
+#define NRFX_POWER_ENABLED 1
+#define NRFX_POWER_CONFIG_IRQ_PRIORITY 7
 
-#include "mpconfigport.h"
-#include "nrf.h"
-
-// Port specific defines
-#ifndef NRFX_LOG_ENABLED
-#define NRFX_LOG_ENABLED 0
+// Turn on nrfx supported workarounds for errata in Rev1/Rev2 of nRF52832
+#ifdef NRF52832_XXAA
+    #define NRFX_SPIS_NRF52_ANOMALY_109_WORKAROUND_ENABLED 1
 #endif
 
-#define NRFX_LOG_UART_DISABLED 1
-
-
-// NRFX configurations
-
-#if NRF51 || NRF52832
-  #define GPIO_COUNT 1
-#elif NRF52840 || NRF52840_XXAA
-  #define GPIO_COUNT 2
+// NOTE: THIS WORKAROUND CAUSES BLE CODE TO CRASH; tested on 2019-03-11.
+// Turn on nrfx supported workarounds for errata in Rev1 of nRF52840
+#ifdef NRF52840_XXAA
+//    #define NRFX_SPIM3_NRF52840_ANOMALY_198_WORKAROUND_ENABLED 1
 #endif
 
-#define NRFX_GPIOTE_ENABLED 1
-#define NRFX_GPIOTE_CONFIG_NUM_OF_LOW_POWER_EVENTS 1
-#if NRF51
-  #define NRFX_GPIOTE_CONFIG_IRQ_PRIORITY 3
-#else
-  #define NRFX_GPIOTE_CONFIG_IRQ_PRIORITY 6
-#endif
+// SPI
+#define NRFX_SPIM_ENABLED 1
 
-#define NRFX_UART_ENABLED 1
-#define NRFX_UART0_ENABLED 1
+// TWIM0 and TWIM1 are the same peripherals as SPIM0 and SPIM1.
+// The IRQ handlers for these peripherals are set up at compile time,
+// so out of the box TWIM0/SPIM0 and TWIM1/SPIM1 cannot be shared
+// between common-hal/busio/I2C.c and SPI.c.
+// We could write an interrupt handler that checks whether it's
+// being used for SPI or I2C, but perhaps two I2C's and 1-2 SPI's are good enough for now.
 
-#define NRFX_TWI_ENABLED (MICROPY_PY_MACHINE_I2C)
-#define NRFX_TWI0_ENABLED 1
-#define NRFX_TWI1_ENABLED 1
+// Enable SPIM1, SPIM2 and SPIM3 (if available)
+// No conflict with TWIM0.
+#define NRFX_SPIM1_ENABLED 1
+#define NRFX_SPIM2_ENABLED 1
+// DON'T ENABLE SPIM3 DUE TO ANOMALY WORKAROUND FAILURE (SEE ABOVE).
+// #ifdef NRF52840_XXAA
+//     #define NRFX_SPIM_EXTENDED_ENABLED 1
+//     #define NRFX_SPIM3_ENABLED 1
+// #else
+//     #define NRFX_SPIM3_ENABLED 0
+// #endif
 
-#if defined(NRF51) || defined(NRF52832)
-  #define NRFX_SPI_ENABLED (MICROPY_PY_MACHINE_HW_SPI)
-  #define NRFX_SPI0_ENABLED 1
-  #define NRFX_SPI1_ENABLED 1
 
-  #if defined(NRF52832)
-    #define NRFX_SPI2_ENABLED 1
-  #endif
-#elif defined(NRF52840)
-  #define NRFX_SPIM_ENABLED (MICROPY_PY_MACHINE_HW_SPI)
-  #define NRFX_SPIM0_ENABLED 1
-  #define NRFX_SPIM1_ENABLED 1
-  #define NRFX_SPIM2_ENABLED 1
-  #define NRFX_SPIM3_ENABLED (NRF52840)
-#endif // NRF51
-
-// 0 NRF_GPIO_PIN_NOPULL
-// 1 NRF_GPIO_PIN_PULLDOWN
-// 3 NRF_GPIO_PIN_PULLUP
-#define NRFX_SPI_MISO_PULL_CFG 1
+#define NRFX_SPIM_DEFAULT_CONFIG_IRQ_PRIORITY 7
 #define NRFX_SPIM_MISO_PULL_CFG 1
 
-#define NRFX_RTC_ENABLED (MICROPY_PY_MACHINE_RTCOUNTER)
-#define NRFX_RTC0_ENABLED 1
-#define NRFX_RTC1_ENABLED 1
-#define NRFX_RTC2_ENABLED (!NRF51)
+// QSPI
+#define NRFX_QSPI_ENABLED                          1
 
-#define NRFX_TIMER_ENABLED (MICROPY_PY_MACHINE_TIMER)
-#define NRFX_TIMER0_ENABLED 1
-#define NRFX_TIMER1_ENABLED (!MICROPY_PY_MACHINE_SOFT_PWM)
-#define NRFX_TIMER2_ENABLED 1
-#define NRFX_TIMER3_ENABLED (!NRF51)
-#define NRFX_TIMER4_ENABLED (!NRF51)
+// TWI aka. I2C; enable a single bus: TWIM0 (no conflict with SPIM1 and SPIM2)
+#define NRFX_TWIM_ENABLED 1
+#define NRFX_TWIM0_ENABLED 1
+//#define NRFX_TWIM1_ENABLED 1
 
+#define NRFX_TWIM_DEFAULT_CONFIG_IRQ_PRIORITY 7
+#define NRFX_TWIM_DEFAULT_CONFIG_FREQUENCY NRF_TWIM_FREQ_400K
+#define NRFX_TWIM_DEFAULT_CONFIG_HOLD_BUS_UNINIT 0
 
-#define NRFX_PWM_ENABLED (!NRF51) && MICROPY_PY_MACHINE_HW_PWM
+// UART
+#define NRFX_UARTE_ENABLED 1
+#define NRFX_UARTE0_ENABLED 1
+#define NRFX_UARTE1_ENABLED 1
+
+// PWM
 #define NRFX_PWM0_ENABLED 1
 #define NRFX_PWM1_ENABLED 1
 #define NRFX_PWM2_ENABLED 1
-#define NRFX_PWM3_ENABLED (NRF52840)
 
-// Peripheral Resource Sharing
-#if defined(NRF51) || defined(NRF52832)
-  #define NRFX_PRS_BOX_0_ENABLED (NRFX_TWI_ENABLED && NRFX_TWI0_ENABLED && NRFX_SPI_ENABLED && NRFX_SPI0_ENABLED)
-  #define NRFX_PRS_BOX_1_ENABLED (NRFX_TWI_ENABLED && NRFX_TWI1_ENABLED && NRFX_SPI_ENABLED && NRFX_SPI1_ENABLED)
-
-  #if defined(NRF52832)
-    #define NRFX_PRS_BOX_2_ENABLED (NRFX_TWI_ENABLED && NRFX_TWI1_ENABLED && NRFX_SPI_ENABLED && NRFX_SPI1_ENABLED)
-  #endif
-#elif defined(NRF52840)
-  #define NRFX_PRS_BOX_0_ENABLED (NRFX_TWI_ENABLED && NRFX_TWI0_ENABLED && NRFX_SPIM_ENABLED && NRFX_SPIM0_ENABLED)
-  #define NRFX_PRS_BOX_1_ENABLED (NRFX_TWI_ENABLED && NRFX_TWI1_ENABLED && NRFX_SPIM_ENABLED && NRFX_SPIM1_ENABLED)
-  #define NRFX_PRS_BOX_2_ENABLED (NRFX_TWI_ENABLED && NRFX_TWI2_ENABLED && NRFX_SPIM_ENABLED && NRFX_SPIM2_ENABLED)
+#ifdef NRF_PWM3
+#define NRFX_PWM3_ENABLED 1
+#else
+#define NRFX_PWM3_ENABLED 0
 #endif
 
-#define NRFX_PRS_ENABLED (NRFX_PRS_BOX_0_ENABLED || NRFX_PRS_BOX_1_ENABLED || NRFX_PRS_BOX_2_ENABLED)
+#define NRFX_RTC_ENABLED 1
+#define NRFX_RTC0_ENABLED 1
+#define NRFX_RTC1_ENABLED 1
+#define NRFX_RTC2_ENABLED 1
 
-#define NRFX_SAADC_ENABLED !(NRF51) && (MICROPY_PY_MACHINE_ADC)
-#define NRFX_ADC_ENABLED (NRF51) && (MICROPY_PY_MACHINE_ADC)
+// TIMERS
+#define NRFX_TIMER_ENABLED 1
+// Don't enable TIMER0: it's used by the SoftDevice.
+#define NRFX_TIMER1_ENABLED 1
+#define NRFX_TIMER2_ENABLED 1
 
-#endif // NRFX_CONFIG_H
+#ifdef NRFX_TIMER3
+#define NRFX_TIMER3_ENABLED 1
+#else
+#define NRFX_TIMER3_ENABLED 0
+#endif
+
+#ifdef NRFX_TIMER4
+#define NRFX_TIMER4_ENABLED 1
+#else
+#define NRFX_TIMER4_ENABLED 0
+#endif
+
+#define NRFX_TIMER_DEFAULT_CONFIG_IRQ_PRIORITY 7
+
+// GPIO interrupt
+#define NRFX_GPIOTE_ENABLED 1
+#define NRFX_GPIOTE_CONFIG_NUM_OF_LOW_POWER_EVENTS 1
+#define NRFX_GPIOTE_CONFIG_IRQ_PRIORITY 7
+
+#endif // NRFX_CONFIG_H__

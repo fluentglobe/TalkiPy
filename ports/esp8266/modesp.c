@@ -30,18 +30,15 @@
 #include "py/runtime.h"
 #include "py/mperrno.h"
 #include "py/mphal.h"
-#include "drivers/dht/dht.h"
+#include "supervisor/shared/translate.h"
 #include "uart.h"
 #include "user_interface.h"
 #include "mem.h"
-#include "ets_alt_task.h"
-#include "espneopixel.h"
-#include "espapa102.h"
 #include "modmachine.h"
 
 #define MODESP_INCLUDE_CONSTANTS (1)
 
-void error_check(bool status, const char *msg) {
+void error_check(bool status, const compressed_string_t *msg) {
     if (!status) {
         nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, msg));
     }
@@ -119,11 +116,9 @@ STATIC mp_obj_t esp_flash_write(mp_obj_t offset_in, const mp_obj_t buf_in) {
     mp_buffer_info_t bufinfo;
     mp_get_buffer_raise(buf_in, &bufinfo, MP_BUFFER_READ);
     if (bufinfo.len & 0x3) {
-        mp_raise_ValueError("len must be multiple of 4");
+        mp_raise_ValueError(translate("len must be multiple of 4"));
     }
-    ets_loop_iter(); // flash access takes time so run any pending tasks
     SpiFlashOpResult res = spi_flash_write(offset, bufinfo.buf, bufinfo.len);
-    ets_loop_iter();
     if (res == SPI_FLASH_RESULT_OK) {
         return mp_const_none;
     }
@@ -133,9 +128,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(esp_flash_write_obj, esp_flash_write);
 
 STATIC mp_obj_t esp_flash_erase(mp_obj_t sector_in) {
     mp_int_t sector = mp_obj_get_int(sector_in);
-    ets_loop_iter(); // flash access takes time so run any pending tasks
     SpiFlashOpResult res = spi_flash_erase_sector(sector);
-    ets_loop_iter();
     if (res == SPI_FLASH_RESULT_OK) {
         return mp_const_none;
     }
@@ -198,28 +191,6 @@ STATIC mp_obj_t esp_check_fw(void) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(esp_check_fw_obj, esp_check_fw);
 
-
-STATIC mp_obj_t esp_neopixel_write_(mp_obj_t pin, mp_obj_t buf, mp_obj_t is800k) {
-    mp_buffer_info_t bufinfo;
-    mp_get_buffer_raise(buf, &bufinfo, MP_BUFFER_READ);
-    esp_neopixel_write(mp_obj_get_pin_obj(pin)->phys_port,
-        (uint8_t*)bufinfo.buf, bufinfo.len, mp_obj_is_true(is800k));
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_3(esp_neopixel_write_obj, esp_neopixel_write_);
-
-#if MICROPY_ESP8266_APA102
-STATIC mp_obj_t esp_apa102_write_(mp_obj_t clockPin, mp_obj_t dataPin, mp_obj_t buf) {
-    mp_buffer_info_t bufinfo;
-    mp_get_buffer_raise(buf, &bufinfo, MP_BUFFER_READ);
-    esp_apa102_write(mp_obj_get_pin_obj(clockPin)->phys_port,
-        mp_obj_get_pin_obj(dataPin)->phys_port,
-        (uint8_t*)bufinfo.buf, bufinfo.len);
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_3(esp_apa102_write_obj, esp_apa102_write_);
-#endif
-
 STATIC mp_obj_t esp_freemem() {
     return MP_OBJ_NEW_SMALL_INT(system_get_free_heap_size());
 }
@@ -259,6 +230,8 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(esp_esf_free_bufs_obj, esp_esf_free_bufs);
 // esp.set_native_code_location() function; see below.  If flash is selected
 // then it is erased as needed.
 
+#include "gccollect.h"
+
 #define IRAM1_END (0x40108000)
 #define FLASH_START (0x40200000)
 #define FLASH_END (0x40300000)
@@ -282,13 +255,23 @@ void esp_native_code_init(void) {
     esp_native_code_erased = 0;
 }
 
+void esp_native_code_gc_collect(void) {
+    void *src;
+    if (esp_native_code_location == ESP_NATIVE_CODE_IRAM1) {
+        src = (void*)esp_native_code_start;
+    } else {
+        src = (void*)(FLASH_START + esp_native_code_start);
+    }
+    gc_collect_root(src, (esp_native_code_end - esp_native_code_start) / sizeof(uint32_t));
+}
+
 void *esp_native_code_commit(void *buf, size_t len) {
     //printf("COMMIT(buf=%p, len=%u, start=%08x, cur=%08x, end=%08x, erased=%08x)\n", buf, len, esp_native_code_start, esp_native_code_cur, esp_native_code_end, esp_native_code_erased);
 
     len = (len + 3) & ~3;
     if (esp_native_code_cur + len > esp_native_code_end) {
         nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_MemoryError,
-            "memory allocation failed, allocating %u bytes for native code", (uint)len));
+            translate("memory allocation failed, allocating %u bytes for native code"), (uint)len));
     }
 
     void *dest;
@@ -298,17 +281,14 @@ void *esp_native_code_commit(void *buf, size_t len) {
     } else {
         SpiFlashOpResult res;
         while (esp_native_code_erased < esp_native_code_cur + len) {
-            ets_loop_iter(); // flash access takes time so run any pending tasks
             res = spi_flash_erase_sector(esp_native_code_erased / FLASH_SEC_SIZE);
             if (res != SPI_FLASH_RESULT_OK) {
                 break;
             }
             esp_native_code_erased += FLASH_SEC_SIZE;
         }
-        ets_loop_iter();
         if (res == SPI_FLASH_RESULT_OK) {
             res = spi_flash_write(esp_native_code_cur, buf, len);
-            ets_loop_iter();
         }
         if (res != SPI_FLASH_RESULT_OK) {
             mp_raise_OSError(res == SPI_FLASH_RESULT_TIMEOUT ? MP_ETIMEDOUT : MP_EIO);
@@ -334,7 +314,7 @@ STATIC mp_obj_t esp_set_native_code_location(mp_obj_t start_in, mp_obj_t len_in)
         esp_native_code_erased = esp_native_code_start;
         // memory-mapped flash is limited in extents to 1MByte
         if (esp_native_code_end > FLASH_END - FLASH_START) {
-            mp_raise_ValueError("flash location must be below 1MByte");
+            mp_raise_ValueError(translate("flash location must be below 1MByte"));
         }
     }
     return mp_const_none;
@@ -355,13 +335,6 @@ STATIC const mp_rom_map_elem_t esp_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_flash_erase), MP_ROM_PTR(&esp_flash_erase_obj) },
     { MP_ROM_QSTR(MP_QSTR_flash_size), MP_ROM_PTR(&esp_flash_size_obj) },
     { MP_ROM_QSTR(MP_QSTR_flash_user_start), MP_ROM_PTR(&esp_flash_user_start_obj) },
-    #if MICROPY_ESP8266_NEOPIXEL
-    { MP_ROM_QSTR(MP_QSTR_neopixel_write), MP_ROM_PTR(&esp_neopixel_write_obj) },
-    #endif
-    #if MICROPY_ESP8266_APA102
-    { MP_ROM_QSTR(MP_QSTR_apa102_write), MP_ROM_PTR(&esp_apa102_write_obj) },
-    #endif
-    { MP_ROM_QSTR(MP_QSTR_dht_readinto), MP_ROM_PTR(&dht_readinto_obj) },
     { MP_ROM_QSTR(MP_QSTR_freemem), MP_ROM_PTR(&esp_freemem_obj) },
     { MP_ROM_QSTR(MP_QSTR_meminfo), MP_ROM_PTR(&esp_meminfo_obj) },
     { MP_ROM_QSTR(MP_QSTR_check_fw), MP_ROM_PTR(&esp_check_fw_obj) },

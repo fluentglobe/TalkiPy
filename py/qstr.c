@@ -28,6 +28,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "py/gc.h"
 #include "py/mpstate.h"
 #include "py/qstr.h"
 #include "py/gc.h"
@@ -103,7 +104,9 @@ const qstr_pool_t mp_qstr_const_pool = {
     {
 #ifndef NO_QSTR
 #define QDEF(id, str) str,
+#define TRANSLATION(id, length, compressed...)
 #include "genhdr/qstrdefs.generated.h"
+#undef TRANSLATION
 #undef QDEF
 #endif
     },
@@ -141,14 +144,18 @@ STATIC qstr qstr_add(const byte *q_ptr) {
 
     // make sure we have room in the pool for a new qstr
     if (MP_STATE_VM(last_pool)->len >= MP_STATE_VM(last_pool)->alloc) {
-        qstr_pool_t *pool = m_new_obj_var_maybe(qstr_pool_t, const char*, MP_STATE_VM(last_pool)->alloc * 2);
+        uint32_t new_pool_length = MP_STATE_VM(last_pool)->alloc * 2;
+        if (new_pool_length > MICROPY_QSTR_POOL_MAX_ENTRIES) {
+            new_pool_length = MICROPY_QSTR_POOL_MAX_ENTRIES;
+        }
+        qstr_pool_t *pool = m_new_ll_obj_var_maybe(qstr_pool_t, const char*, new_pool_length);
         if (pool == NULL) {
             QSTR_EXIT();
-            m_malloc_fail(MP_STATE_VM(last_pool)->alloc * 2);
+            m_malloc_fail(new_pool_length);
         }
         pool->prev = MP_STATE_VM(last_pool);
         pool->total_prev_len = MP_STATE_VM(last_pool)->total_prev_len + MP_STATE_VM(last_pool)->len;
-        pool->alloc = MP_STATE_VM(last_pool)->alloc * 2;
+        pool->alloc = new_pool_length;
         pool->len = 0;
         MP_STATE_VM(last_pool) = pool;
         DEBUG_printf("QSTR: allocate new pool of size %d\n", MP_STATE_VM(last_pool)->alloc);
@@ -211,10 +218,10 @@ qstr qstr_from_strn(const char *str, size_t len) {
             if (al < MICROPY_ALLOC_QSTR_CHUNK_INIT) {
                 al = MICROPY_ALLOC_QSTR_CHUNK_INIT;
             }
-            MP_STATE_VM(qstr_last_chunk) = m_new_maybe(byte, al);
+            MP_STATE_VM(qstr_last_chunk) = m_new_ll_maybe(byte, al);
             if (MP_STATE_VM(qstr_last_chunk) == NULL) {
                 // failed to allocate a large chunk so try with exact size
-                MP_STATE_VM(qstr_last_chunk) = m_new_maybe(byte, n_bytes);
+                MP_STATE_VM(qstr_last_chunk) = m_new_ll_maybe(byte, n_bytes);
                 if (MP_STATE_VM(qstr_last_chunk) == NULL) {
                     QSTR_EXIT();
                     m_malloc_fail(n_bytes);

@@ -29,6 +29,7 @@
 #include <stdio.h>
 
 #include "simplelink.h"
+#include "py/ioctl.h"
 #include "py/mpconfig.h"
 #include "py/obj.h"
 #include "py/objstr.h"

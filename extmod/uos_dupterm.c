@@ -34,6 +34,8 @@
 #include "py/stream.h"
 #include "lib/utils/interrupt_char.h"
 
+#include "supervisor/shared/translate.h"
+
 #if MICROPY_PY_OS_DUPTERM
 
 void mp_uos_deactivate(size_t dupterm_idx, const char *msg, mp_obj_t exc) {
@@ -85,7 +87,7 @@ int mp_uos_dupterm_rx_chr(void) {
                 return buf[0];
             }
         } else {
-            mp_uos_deactivate(idx, "dupterm: Exception in read() method, deactivating: ", MP_OBJ_FROM_PTR(nlr.ret_val));
+            mp_uos_deactivate(idx, "dupterm: Exception in read() method, deactivating: ", nlr.ret_val);
         }
     }
 
@@ -103,7 +105,7 @@ void mp_uos_dupterm_tx_strn(const char *str, size_t len) {
             mp_stream_write(MP_STATE_VM(dupterm_objs[idx]), str, len, MP_STREAM_RW_WRITE);
             nlr_pop();
         } else {
-            mp_uos_deactivate(idx, "dupterm: Exception in write() method, deactivating: ", MP_OBJ_FROM_PTR(nlr.ret_val));
+            mp_uos_deactivate(idx, "dupterm: Exception in write() method, deactivating: ", nlr.ret_val);
         }
     }
 }
@@ -115,7 +117,7 @@ STATIC mp_obj_t mp_uos_dupterm(size_t n_args, const mp_obj_t *args) {
     }
 
     if (idx < 0 || idx >= MICROPY_PY_OS_DUPTERM) {
-        mp_raise_ValueError("invalid dupterm index");
+        mp_raise_ValueError(translate("invalid dupterm index"));
     }
 
     mp_obj_t previous_obj = MP_STATE_VM(dupterm_objs[idx]);

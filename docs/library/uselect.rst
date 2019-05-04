@@ -1,13 +1,15 @@
 :mod:`uselect` -- wait for events on a set of streams
 ========================================================================
 
+.. include:: ../templates/unsupported_in_circuitpython.inc
+
 .. module:: uselect
    :synopsis: wait for events on a set of streams
 
-|see_cpython_module| :mod:`python:select`.
+|see_cpython_module| :mod:`cpython:select`.
 
 This module provides functions to efficiently wait for events on multiple
-`streams <stream>` (select streams which are ready for operations).
+``stream`` objects (select streams which are ready for operations).
 
 Functions
 ---------
@@ -33,7 +35,7 @@ Methods
 
 .. method:: poll.register(obj[, eventmask])
 
-   Register `stream` *obj* for polling. *eventmask* is logical OR of:
+   Register ``stream`` *obj* for polling. *eventmask* is logical OR of:
 
    * ``uselect.POLLIN``  - data available for reading
    * ``uselect.POLLOUT`` - more data can be written
@@ -45,18 +47,13 @@ Methods
 
    *eventmask* defaults to ``uselect.POLLIN | uselect.POLLOUT``.
 
-   It is OK to call this function multiple times for the same *obj*.
-   Successive calls will update *obj*'s eventmask to the value of
-   *eventmask* (i.e. will behave as `modify()`).
-
 .. method:: poll.unregister(obj)
 
    Unregister *obj* from polling.
 
 .. method:: poll.modify(obj, eventmask)
 
-   Modify the *eventmask* for *obj*. If *obj* is not registered, `OSError`
-   is raised with error of ENOENT.
+   Modify the *eventmask* for *obj*.
 
 .. method:: poll.poll(timeout=-1)
 
@@ -84,7 +81,7 @@ Methods
 .. method:: poll.ipoll(timeout=-1, flags=0)
 
    Like :meth:`poll.poll`, but instead returns an iterator which yields a
-   `callee-owned tuple`. This function provides an efficient, allocation-free
+   ``callee-owned tuples``. This function provides efficient, allocation-free
    way to poll on streams.
 
    If *flags* is 1, one-shot behavior for events is employed: streams for

@@ -31,6 +31,8 @@
 #include "py/runtime.h"
 #include "py/smallint.h"
 
+#include "supervisor/shared/translate.h"
+
 #if MICROPY_PY_UTIMEQ
 
 #define MODULO MICROPY_PY_UTIME_TICKS_PERIOD
@@ -74,8 +76,8 @@ STATIC bool time_less_than(struct qentry *item, struct qentry *parent) {
     return res && res < (MODULO / 2);
 }
 
-STATIC mp_obj_t utimeq_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args) {
-    mp_arg_check_num(n_args, n_kw, 1, 1, false);
+STATIC mp_obj_t utimeq_make_new(const mp_obj_type_t *type, size_t n_args, const mp_obj_t *args, mp_map_t *kw_args) {
+    mp_arg_check_num(n_args, kw_args, 1, 1, false);
     mp_uint_t alloc = mp_obj_get_int(args[0]);
     mp_obj_utimeq_t *o = m_new_obj_var(mp_obj_utimeq_t, struct qentry, alloc);
     o->base.type = type;
@@ -126,7 +128,7 @@ STATIC mp_obj_t mod_utimeq_heappush(size_t n_args, const mp_obj_t *args) {
     mp_obj_t heap_in = args[0];
     mp_obj_utimeq_t *heap = get_heap(heap_in);
     if (heap->len == heap->alloc) {
-        mp_raise_msg(&mp_type_IndexError, "queue overflow");
+        mp_raise_IndexError(translate("queue overflow"));
     }
     mp_uint_t l = heap->len;
     heap->items[l].time = MP_OBJ_SMALL_INT_VALUE(args[1]);
@@ -142,7 +144,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_utimeq_heappush_obj, 4, 4, mod_ut
 STATIC mp_obj_t mod_utimeq_heappop(mp_obj_t heap_in, mp_obj_t list_ref) {
     mp_obj_utimeq_t *heap = get_heap(heap_in);
     if (heap->len == 0) {
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_IndexError, "empty heap"));
+        mp_raise_IndexError(translate("empty heap"));
     }
     mp_obj_list_t *ret = MP_OBJ_TO_PTR(list_ref);
     if (!MP_OBJ_IS_TYPE(list_ref, &mp_type_list) || ret->len < 3) {
@@ -167,7 +169,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(mod_utimeq_heappop_obj, mod_utimeq_heappop);
 STATIC mp_obj_t mod_utimeq_peektime(mp_obj_t heap_in) {
     mp_obj_utimeq_t *heap = get_heap(heap_in);
     if (heap->len == 0) {
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_IndexError, "empty heap"));
+        mp_raise_IndexError(translate("empty heap"));
     }
 
     struct qentry *item = &heap->items[0];
