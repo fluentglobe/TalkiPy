@@ -30,7 +30,7 @@ fpioa = FPIOA()
 fpioa.set_function(test_pin,FPIOA.GPIO7)
 test_gpio=GPIO(GPIO.GPIO7,GPIO.IN)
 lcd.init(color=(255,0,0))
-lcd.draw_string(100,120, "Hello, my name is Talki!", lcd.WHITE, lcd.RED)
+lcd.draw_string(50,120, "Hello, my name is Talki!", lcd.WHITE, lcd.RED)
 if test_gpio.value() == 0:
     print('PIN 7 pulled down, enter test mode')
     import sensor
@@ -62,7 +62,7 @@ banner = '''
         \|__|  \|__|\|__|\|_______|\|__| \|__|\|__|\|__||\___/ /
                                                         \|___|/
 
-Official Site : https://fluentglobe.com/talki
+Official Site : https://thepia.com/talki
 Store         : https://thepia.com/talki
 '''
 print(banner)

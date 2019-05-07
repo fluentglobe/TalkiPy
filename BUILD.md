@@ -10,6 +10,10 @@ You open a build shell in the Docker container by
 
     > docker run -i -v /Volumes/Projects/TalkiPy:/TalkiPy -t k210:latest /bin/bash
 
+or
+
+    > docker run -w /TalkiPy/ports/k210-freertos -i -v /Volumes/Projects/TalkiPy:/TalkiPy -t k210:latest ./build.sh
+
 The default toolchain path in `config.conf` is `/opt/kendryte_toolchain`. That is populated when the container is built.
 
 The `modules_conf.mk` defines features to include in the firmware.
