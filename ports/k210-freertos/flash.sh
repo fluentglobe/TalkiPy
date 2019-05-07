@@ -19,7 +19,7 @@ if [[ "x$baud" == "x" || "x$Board" == "x" || "x$device" == "x" ]]; then
 fi
 
 monitor=false
-kflash_py=tools/kflash.py/kflash.py
+kflash_py=tools/kflash/kflash.py
 
 start_time=`date +%s`
 
@@ -51,7 +51,7 @@ if [[ "x$1" == "xhelp" || "x$1" == "x--help" || "x$1" == "x-h" ]]; then
     help
     exit 0
 elif [[ "x$1" == "xinstall" ]]; then
-    git clone https://github.com/sipeed/kflash.py.git tools/kflash.py
+    git clone --depth 0 https://github.com/sipeed/kflash.py.git tools/kflash
     exit 0
 elif [[ "x$1" == "xuninstall" ]]; then
     rm -rf tools/kflash.py
@@ -60,7 +60,7 @@ elif [[ "x$1" == "xuninstall" ]]; then
 fi
 
 if [[ ! -f $kflash_py ]]; then
-    git clone https://github.com/sipeed/kflash.py.git tools/kflash.py
+    git clone --depth 0 https://github.com/sipeed/kflash.py.git tools/kflash
 fi
 
 cwd=`pwd`
