@@ -20,7 +20,7 @@ git submodule update --recursive --init
 It will regiter and clone all submodules, if you don't want to register all submodules, cause some modules is unnecessary, just execute
 ```
 git submodule update --init
-# or 
+# or
 git submodule update --init path_to_submodule
 # or
 git submodule update --init --recursive path_to_submodule
@@ -38,7 +38,7 @@ sudo pip3 install -r requirements.txt
 ```
 > recommend `python3` instead of python2
 
-Check `CMake` version by 
+Check `CMake` version by
 
 ```
 cmake --version
@@ -86,10 +86,10 @@ and default toolchain pfrefix is `riscv64-unknown-elf-`.
 
 If you have copied toolchain to `/opt`, just use default.
 
-Or you can customsize your toolchain path by 
+Or you can customsize your toolchain path by
 
 ```
-python3 project.py --toolchain /opt/kendryte-toolchain/bin --toolchain-prefix riscv64-unknown-elf- config 
+python3 project.py --toolchain /opt/kendryte-toolchain/bin --toolchain-prefix riscv64-unknown-elf- config
 ```
 
 And clean config to default by command
@@ -129,7 +129,7 @@ Clean all build files by:
 python3 project.py distclean
 ```
 
-The make system is generated from `cmake`, 
+The make system is generated from `cmake`,
 you must run
 
 ```
@@ -139,6 +139,11 @@ python3 project.py rebuild
 to rebuild make system after you add/delete source files or edit kconfig files
 
 
+## Make and use Docker container
+
+> docker build --tag k210 .
+
+> docker run -i -v /Volumes/Projects/TalkiPy:/TalkiPy -t k210:latest /bin/bash
 
 
 ## Flash (Burn) to board
@@ -163,7 +168,7 @@ You don't need to confiure again the next time you burn firmware, just use:
 ```
 python3 project.py flash
 ```
-or 
+or
 ```
 python3 project.py -S flash
 ```
@@ -180,10 +185,3 @@ python3 project.py --help
 
 * Code conventions: TODO
 * Build system: refer to [c_cpp_project_framework](https://github.com/Neutree/c_cpp_project_framework)
-
-
-
-
-
-
-
